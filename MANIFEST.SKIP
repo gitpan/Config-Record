@@ -11,3 +11,4 @@ CVS
 build-stamp
 debian/files
 debian/libconfig-record-perl.*
+cover_db

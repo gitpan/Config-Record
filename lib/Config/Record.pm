@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.8 2004/10/10 22:40:29 dan Exp $
+# $Id: Record.pm,v 1.10 2005/03/09 21:52:34 dan Exp $
 
 package Config::Record;
 
@@ -30,7 +30,7 @@ use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.0.5";
+$VERSION = "1.1.0";
 
 sub new {
     my $proto = shift;
@@ -38,7 +38,7 @@ sub new {
     my $self = {};
     my %params = @_;
     
-    $self->{record} = {};
+    $self->{record} = exists $params{record} ? $params{record} : {};
     $self->{debug} = $params{debug};
     
     bless $self, $class;
@@ -84,7 +84,7 @@ sub _parse {
     my $here;
     my $continuation;
 
-    my $LABEL = '((?:\w|-)+)';
+    my $LABEL = '((?:\w|-|\.)+)';
     my $TRAILING_WHITESPACE = '\s*(?:\#.*)?';
     my $lineno = 0;
 
@@ -335,39 +335,64 @@ sub _format_scalar {
     }
 }
 
-sub param {
-    my $self = shift;
-    
-    if (warnings::enabled()) {
-	cluck "use of deprecated 'param' method. use 'get' instead";
-    }
 
-    return $self->get(@_);
+sub view {
+    my $self = shift;
+    my $key = shift;
+    
+    my $value = $self->get($key, @_);
+
+    if (!ref($value) ||
+	ref($value) ne "HASH") {
+	confess "value for $key is not a hash";
+    }
+    return $self->new(record => $value);
 }
+
 
 sub get {
     my $self = shift;
     my $key = shift;
     
-    my @key = split /\./, $key;
+    my @key = split /\//, $key;
     
     my $entry = $self->{record};
-    foreach (@key) {
-	if (ref($entry) ne "HASH") {
-	    if (@_) {
-		return shift;
-	    }
-	    confess "cannot find parameter $key";
-	}
+    my $context;
+    foreach my $fragment (@key) {
+	$context = defined $context ? $context . "/" . $fragment : $fragment;
 	
-	if (!exists $entry->{$_}) {
-	    if (@_) {
-		return shift;
+	if ($fragment =~ /^\[(\d+)\]$/) {
+	    my $index = $1;
+	    if (ref($entry) ne "ARRAY") {
+		if (@_) {
+		    return shift;
+		}
+		confess "cannot find array value at $context for parameter $key";
 	    }
-	    confess "cannot find parameter $key";
+	    if ($#{$entry} < $index) {
+		if (@_) {
+		    return shift;
+		}
+		confess "cannot find array value at $context for parameter $key";
+	    }
+	    $entry = $entry->[$index];
+	} elsif ($fragment =~ /((?:\w|-|\.)+)/) {
+	    if (ref($entry) ne "HASH") {
+		if (@_) {
+		    return shift;
+		}
+		confess "cannot find hash value at $context for parameter $key";
+	    }
+	    if (!exists $entry->{$fragment}) {
+		if (@_) {
+		    return shift;
+		}
+		confess "cannot find hash value at $context for parameter $key";
+	    }
+	    $entry = $entry->{$fragment};
+	} else {
+	    confess "fragment '$fragment' should be alphanumeric, or an array index";
 	}
-	
-	$entry = $entry->{$_};
     }
     
     return $entry;
@@ -379,21 +404,52 @@ sub set {
     my $key = shift;
     my $value = shift;
     
-    my @key = split /\./, $key;
+    my @key = split /\//, $key;
     
     my $entry = $self->{record};
-    foreach (my $i = 0 ; $i <= $#key ; $i++) {
-	if (ref($entry) ne "HASH") {
-	    confess "cannot find parameter $key";
-	}
-
-	if ($i == $#key) {
-	    $entry->{$key[$i]} = $value;
-	} else {
-	    if (!exists $entry->{$key[$i]}) {
-		confess "cannot find parameter $key";
+    my $context;
+    while (defined (my $fragment = shift @key)) {
+	$context = defined $context ? $context . "/" . $fragment : $fragment;
+	
+	if ($fragment =~ /^\[(\d+)\]$/) {
+	    my $index = $1;
+	    if (ref($entry) ne "ARRAY") {
+		confess "cannot find array value at $context for parameter $key";
 	    }
-	    $entry = $entry->{$key[$i]};
+	    if (@key) {
+		if (exists $entry->[$index]) {
+		    $entry = $entry->[$index];
+		} else {
+		    if ($key[0] =~ /^\[(\d+)\]$/) {
+			$entry->[$index] = [];
+		    } else {
+			$entry->[$index] = {};
+		    }
+		    $entry = $entry->[$index];
+		}
+	    } else {
+		$entry->[$index] = $value;
+	    }
+	} elsif ($fragment =~ /((?:\w|-|\.)+)/) {
+	    if (ref($entry) ne "HASH") {
+		confess "cannot find hash value at $context for parameter $key";
+	    }
+	    if (@key) {
+		if (exists $entry->{$fragment}) {
+		    $entry = $entry->{$fragment};
+		} else {
+		    if ($key[0] =~ /^\[(\d+)\]$/) {
+			$entry->{$fragment} = [];
+		    } else {
+			$entry->{$fragment} = {};
+		    }
+		    $entry = $entry->[$fragment];
+		}
+	    } else {
+		$entry->{$fragment} = $value;
+	    }
+	} else {
+	    confess "fragment '$fragment' should be alphanumeric, or an array index";
 	}
     }
 }

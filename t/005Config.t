@@ -1,6 +1,6 @@
-# $Id: 005Config.t,v 1.5 2004/10/10 22:40:29 dan Exp $
+# $Id: 005Config.t,v 1.7 2005/03/09 21:52:34 dan Exp $
 
-use Test::More tests => 37;
+use Test::More tests => 56;
 
 BEGIN { use_ok("Config::Record") }
 
@@ -10,8 +10,6 @@ use Carp qw(confess);
 use Test::Harness;
 use File::Temp qw(tempfile);
 use IO::File;
-
-no warnings 'Config::Record';
 
 my $config = <<END;
   name = Foo
@@ -50,6 +48,7 @@ EOF
   wizz = { # Testing a hash
     foo = "Elk"
     ooh = "fds"
+    eek.wibble = Hurrah
   }
   wibble = { # Testing a hash of hashes
     nice = {
@@ -72,16 +71,16 @@ close $fh;
 my $cfg = Config::Record->new(file => $file, debug => ($ENV{TEST_DEBUG} || 0));
 
 # Test plain string
-is($cfg->param("name"), "Foo", "Plain string");
+is($cfg->get("name"), "Foo", "Plain string");
 
 # Test quoted string
-is($cfg->param("title"), "Wizz bang wallop", "Quoted string");
+is($cfg->get("title"), "Wizz bang wallop", "Quoted string");
 
 # Test continuation
-is($cfg->param("label"), "First string split across", "Continuation");
+is($cfg->get("label"), "First string split across", "Continuation");
 
 # Test here doc
-is($cfg->param("description"), <<EOF
+is($cfg->get("description"), <<EOF
 This is a multi-line paragraph.
 This is the second line.
 And the third
@@ -89,34 +88,34 @@ EOF
 , "Here doc");
 
 # Test array element continuation
-is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+is($cfg->get("eek")->[2], "Wizz Bang", "Continuation");
 
 # Test array here doc
-is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
+is($cfg->get("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-is($cfg->param("nada", "eek"), "eek", "Defaults");
+is($cfg->get("nada", "eek"), "eek", "Defaults");
 
 # Test nested hash/array lookups
-ok(defined $cfg->param("wibble.nice"), "Hash key defined");
-ok(defined $cfg->param("wibble.nice.ooh"), "Hash, hash key defined");
-ok($cfg->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
+ok(defined $cfg->get("wibble/nice"), "Hash key defined");
+ok(defined $cfg->get("wibble/nice/ooh"), "Hash, hash key defined");
+ok($cfg->get("wibble/nice/ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Now test the constructor with a file handle
 $fh = IO::File->new($file);
 $cfg = Config::Record->new(file => $fh);
 
 # Test plain string
-is($cfg->param("name"), "Foo", "Plain string");
+is($cfg->get("name"), "Foo", "Plain string");
 
 # Test quoted string
-is($cfg->param("title"), "Wizz bang wallop", "Quoted string");
+is($cfg->get("title"), "Wizz bang wallop", "Quoted string");
 
 # Test continuation
-is($cfg->param("label"), "First string split across", "Continuation");
+is($cfg->get("label"), "First string split across", "Continuation");
 
 # Test here doc
-is($cfg->param("description"), <<EOF
+is($cfg->get("description"), <<EOF
 This is a multi-line paragraph.
 This is the second line.
 And the third
@@ -124,43 +123,109 @@ EOF
 , "Here doc");
 
 # Test array element continuation
-is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+is($cfg->get("eek")->[2], "Wizz Bang", "Continuation");
 
 # Test array here doc
-is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
+is($cfg->get("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-is($cfg->param("nada", "eek"), "eek", "Defaults");
+is($cfg->get("nada", "eek"), "eek", "Defaults");
 
 # Test nested hash/array lookups
-ok(defined $cfg->param("wibble.nice"), "Hash key defined");
-ok(defined $cfg->param("wibble.nice.ooh"), "Hash, hash key defined");
-ok($cfg->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
+ok(defined $cfg->get("wibble/nice"), "Hash key defined");
+ok(defined $cfg->get("wibble/nice/ooh"), "Hash, hash key defined");
+ok($cfg->get("wibble/nice/ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
+
+ok(ref($cfg->get("people/[0]")) eq "HASH", "people/[0] is a hash");
+is($cfg->get("people/[0]/forename"), "John", "First person forename is John");
+is($cfg->get("people/[1]/forename"), "Some", "Second person forename is Some");
+eval {
+  $cfg->get("people/[2]/forename");
+};
+ok($@, "too many people");
+
+$cfg->set("people/[2]", { "forename" => "Bob", "surname" => "Man" });
+ok(ref($cfg->get("people/[2]")) eq "HASH", "people/[2] is a hash");
+is($cfg->get("people/[2]/forename"), "Bob", "Third person forename is Bob");
+
+eval {
+  # Root element should be a hash!
+  $cfg->get("[0]");
+};
+ok($@, "root should be a hash");
+
+# Now lets get a view
+
+my $subcfg = $cfg->view("people/[2]");
+
+is($subcfg->get("forename"), "Bob", "Got forename from view");
+is($subcfg->get("surname"), "Man", "Got surname from view");
+
+$subcfg->set("address", [{ "street" => "Long road",
+			  "phone" => [
+				      "123",
+				      "456",
+				      ],
+			  "city" => "London" },
+			 { "street" => "Other road",
+			   "phone" => [
+				       "513",
+				      ],
+			   "city" => "London" }]);
+
+is($subcfg->get("address/[0]/street"), "Long road", "Street is long road");
+is($subcfg->get("address/[0]/phone/[0]"), "123", "First phone number is 123");
+
+is($subcfg->get("address/[1]/street"), "Other road", "Street is other road");
+
+# Check the original config was altered too
+
+is($cfg->get("people/[2]/address/[0]/street"), "Long road", "Street is long road");
+is($cfg->get("people/[2]/address/[0]/phone/[0]"), "123", "First phone number is 123");
+
+is($cfg->get("people/[2]/address/[1]/street"), "Other road", "Street is other road");
+
+
+# Now test a view or two that fail
+eval {
+  $cfg->view("people");
+};
+ok($@, "getting view of people failed");
+eval {
+  $cfg->view("people/[1]/forename");
+};
+ok($@, "getting view of people/[1]/forename failed");
 
 # Test with empty constructor & load method
 
 $cfg = Config::Record->new();
 
 # Shouldn't be anything there yet
-eval "$cfg->param('name')";
+eval "$cfg->get('name')";
 ok($@ ? 1 : 0, "No defaults");
 
 # Lets set an option
 $cfg->set("name" => "Blah");
-is($cfg->param("name"), "Blah", "Set option");
+is($cfg->get("name"), "Blah", "Set option");
 
 # Now load the config record
 $fh = IO::File->new($file);
 $cfg->load($fh);
 
 # Test plain string - should have overwritten 'Blah'
-is($cfg->param("name"), "Foo", "Reload plain string");
+is($cfg->get("name"), "Foo", "Reload plain string");
 
 # Test quoted string
-is($cfg->param("title"), "Wizz bang wallop", "Reloaded quoted string");
+is($cfg->get("title"), "Wizz bang wallop", "Reloaded quoted string");
 
 # Test defaults
-is($cfg->param("nada", "eek"), "eek", "Reloaded defaults");
+is($cfg->get("nada", "eek"), "eek", "Reloaded defaults");
+
+# Test compound paths
+is($cfg->get("wizz/foo"), "Elk", "Compound paths");
+
+# Test '.' in key names
+is($cfg->get("wizz/eek.wibble"), "Hurrah", "Compound paths with .");
 
 
 # Now write it out to another file....
@@ -172,16 +237,16 @@ $cfg->save($file2);
 my $cfg2 = Config::Record->new(file => $file2);
 
 # Test plain string
-is($cfg2->param("name"), "Foo", "Saved plain string");
+is($cfg2->get("name"), "Foo", "Saved plain string");
 
 # Test quoted string
-is($cfg2->param("title"), "Wizz bang wallop", "Saved quoted string");
+is($cfg2->get("title"), "Wizz bang wallop", "Saved quoted string");
 
 # Test continuation
-is($cfg->param("label"), "First string split across", "Continuation");
+is($cfg->get("label"), "First string split across", "Continuation");
 
 # Test here doc
-is($cfg->param("description"), <<EOF
+is($cfg->get("description"), <<EOF
 This is a multi-line paragraph.
 This is the second line.
 And the third
@@ -189,21 +254,22 @@ EOF
 , "Here doc");
 
 # Test array element continuation
-is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+is($cfg->get("eek")->[2], "Wizz Bang", "Continuation");
 
 # Test array here doc
-is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
+is($cfg->get("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-is($cfg2->param("nada", "eek"), "eek", "Saved defaults");
+is($cfg2->get("nada", "eek"), "eek", "Saved defaults");
 
 # Test nested hash/array lookups
-ok(defined $cfg2->param("wibble.nice"), "Hash key defined");
-ok(defined $cfg2->param("wibble.nice.ooh"), "Hash, hash key defined");
-ok($cfg2->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
+ok(defined $cfg2->get("wibble/nice"), "Hash key defined");
+ok(defined $cfg2->get("wibble/nice/ooh"), "Hash, hash key defined");
+ok($cfg2->get("wibble/nice/ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Now recursively compare entire hash
 eq_hash($cfg->record, $cfg2->record, "Entire hash");
+
 
 # Finally test the constructor with bogus ref
 

@@ -23,15 +23,25 @@ Config::Record - Configuration file access
   $config->save($fh);
 
   # Get a config value, throw error if not found
-  my $value = $config->get("foo.bar");
+  my $value = $config->get("foo");
 
   # Get a config value, return 'eek' if not found
-  my $value = $config->get("foo.bar", "eek");
+  my $value = $config->get("foo", "eek");
 
   # Set a value
-  $config->set("foo.bar", "wizz");
+  $config->set("foobar", "wizz");
 
+  # Get a deep config value (ie nested hash)
+  my $value = $config->get("foo/bar", "eek");
+
+  # Get first element of an array param
+  my $value = $config->get("people/[0]/forename");
+
+  # Get the raw hash reference forming the record
   my $record = $config->record();
+
+  # Get a new config object rooted at a sub-hash
+  my $config = $config->view("foo");
 
 =head1 DESCRIPTION
 
@@ -141,15 +151,16 @@ Gets the value of a configuration parameter corresponding to the name
 C<key>. If there is no value in the record, then the optional C<default> 
 is returned.
 
-=item my $value = $config->param($key[, $default]);
-
-This method is a (deprecated) alias for $config->get($key[, $default]).
-It will be removed in a future release.
-
 =item $config->set($key, $value);
 
 Sets the value of a configuration parameter corresponding to the
 name C<key>. 
+
+=item $config->view($key)
+
+Return a new Config::Record object, rooted at the specified key.
+If the key doesn't resolve to a hash reference an error will be
+raised.
 
 =item my $record = $config->record();
 
@@ -175,11 +186,6 @@ removed & whitespace normalized.
 
 Ordering of elements in hash ref are not preserved across load
 and save sequence
-
-=item *
-
-When getting a parameter value it is not possible to specify an
-index into an array reference, eg $cfg->get('foo.bar[3].wizz');
 
 =back
 

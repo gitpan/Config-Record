@@ -10,14 +10,14 @@
 
 Summary: Config::Record - Simple configuration records
 Name: perl-%{appname}
-Version: 1.0.5
+Version: 1.1.0
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
 Source: %{appname}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{appname}-%{version}-root
 BuildArchitectures: noarch
-Requires: perl = %{perlversion}
+Requires: perl >= %{perlversion}
 
 %description
 Config::Record provides a module for loading configuration

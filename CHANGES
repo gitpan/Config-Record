@@ -1,6 +1,23 @@
 Change Log for Config::Record
 =============================
 
+v1.1.0 (on 09-03-2005)
+----------------------
+
+This is a new major release since it breaks backwards
+compatability with 1.0.x series for compound keys.
+
+ * Allow keys in config files to contain periods.
+ * Change syntax for retrieving nested values from being
+   period separated to be slash separated. eg, instead of
+   $cfg->get("foo.bar"), use $cfg->get("foo/bar");
+ * Add support for selecting specific elements in an array
+   with $cfg->get("foo/[0]");
+ * Add support for creating a view on a subset of the
+   configuration record
+ * Increased test coverage to hit 83% of statements, 64% of
+   branches, 76% of conditionals, and 100% of subroutines.
+
 v1.0.5 (on 10-10-2004)
 ----------------------
 

@@ -1,6 +1,6 @@
 # Copyright (C) 2001-2004 Daniel Berrange <dan@berrange.com>
 #
-# $Id: Config-Record.spec.PL,v 1.5 2004/05/14 14:04:59 dan Exp $
+# $Id: Config-Record.spec.PL,v 1.6 2005/03/09 21:52:34 dan Exp $
 
 use strict;
 
@@ -39,7 +39,7 @@ Group: Applications/Internet
 Source: %{appname}-%{version}.tar.gz
 BuildRoot: /var/tmp/%{appname}-%{version}-root
 BuildArchitectures: noarch
-Requires: perl = %{perlversion}
+Requires: perl >= %{perlversion}
 
 %description
 Config::Record provides a module for loading configuration
