@@ -10,7 +10,7 @@
 
 Summary: Config::Record - Simple configuration records
 Name: perl-%{appname}
-Version: 1.0.2
+Version: 1.0.3
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
@@ -45,7 +45,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS
-%doc COPYING
+%doc LICENSE
 %doc README
 %{perlsiteman3}/*
 %{perlsitelib}/Config/Record.pm

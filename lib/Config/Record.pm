@@ -18,180 +18,321 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.4 2004/04/05 10:10:43 dan Exp $
+# $Id: Record.pm,v 1.5 2004/05/14 13:44:49 dan Exp $
 
 package Config::Record;
 
 use strict;
-use Carp qw(confess);
+use Carp qw(confess cluck);
 use IO::File;
+
+use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.0.2";
+$VERSION = "1.0.3";
 
-sub new
-  {
+sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $self = {};
     my %params = @_;
-
-    $self->{file} = exists $params{file} ? $params{file} : confess "file parameter is required";
-
+    
+    $self->{record} = {};
+    
     bless $self, $class;
-
-    my $fh;
-    if (ref($self->{file})) {
-      if (!$self->{file}->isa("IO::Handle")) {
-	  confess "file must be an instance of IO::Handle";
-      }
-      $fh = $self->{file};
-    } else {
-      $fh = IO::File->new($self->{file});
+    
+    if (defined $params{file}) {
+	$self->load($params{file});
     }
-      
-    $/ = undef;
-    $self->_parse(<$fh>);
-    $fh->close;
     
     return $self;
-  }
+}
 
 
-sub _parse
-  {
+sub load {
+    my $self = shift;
+    my $file = shift;
+    
+    my $fh;
+    if (ref($file)) {
+	if (!$file->isa("IO::Handle")) {
+	    confess "file must be an instance of IO::Handle";
+	}
+	$fh = $file;
+    } else {
+	$fh = IO::File->new($file)
+	    or confess "cannot read from $file: $!";
+    }
+    
+    local $/ = undef;
+    my $data = <$fh>;
+    $self->_parse($data,  ref($file) ? "<unknown>" : $file);
+    $fh->close 
+	or confess "cannot close file: $!";
+}
+
+
+sub _parse {
     my $self = shift;
     my $data = shift;
+    my $filename = shift;
 
     my $value = {};
     my @stack = $value;
     my $line = 0;
     foreach (split /\n/, $data) {
-      $line++;
-      
-      next if m|^\s*#|;
-      next if m|^\s*$|;
-      
-      if (/^\s*((?:\w|-)+)\s*=\s*\(\s*$/) { # foo = (
-        if (ref($value) eq "ARRAY") {
-	  confess "unexpected key,value pair in $self->{filename} at line $line";
-	}
-      
-        my $key = $1;
-	
-	my $new = [];
-	$value->{$key} = $new;
-	$value = $new;
-	push @stack, $value;
-      } elsif (/^\s*\(\s*$/) { # (
-        if (ref($value) ne "ARRAY") {
-	  confess "unexpected array entry in $self->{filename} at line $line";
-	}
-      
-	my $new = [];
-	push @{$value}, $new;
-	$value = $new;
-	push @stack, $value;
-      } elsif (/^\s*\)\s*$/) { # )
-        if (ref($value) ne "ARRAY") {
-	  confess "mismatched closing round bracket in $self->{filename} at line $line";
-	}
-	if ($#stack == 0) {
-	  confess "too many closing curley bracket in $self->{filename} at line $line";
-	}
-	
-	pop @stack;
-        $value = $stack[$#stack];
-      } elsif (/^\s*((?:\w|-)+)\s*=\s*{\s*$/) { # foo = {
-        if (ref($value) eq "ARRAY") {
-	  confess "unexpected key,value pair in $self->{filename} at line $line";
-	}
-      
-        my $key = $1;
-	
-	my $new = {};
-	$value->{$key} = $new;
-	$value = $new;
-	push @stack, $value;
-      } elsif (/^\s*{\s*$/) { # {
-        if (ref($value) ne "ARRAY") {
-	  confess "unexpected array entry in $self->{filename} at line $line";
-	}
-      
-	my $new = {};
-	push @{$value}, $new;
-	$value = $new;
-	push @stack, $value;
-      } elsif (/^\s*}\s*$/) { # }
-        if (ref($value) eq "ARRAY") {
-	  confess "mismatched closing curly bracket in $self->{filename} at line $line";
-	}
-	if ($#stack == 0) {
-	  confess "too many closing curley bracket in $self->{filename} at line $line";
-	}
-	
-	pop @stack;
-        $value = $stack[$#stack];
-      } elsif (/^\s*((?:\w|-)+)\s*=\s*"(.*)"\s*$/ || # foo = "..."
-               /^\s*((?:\w|-)+)\s*=\s*(.*?)\s*$/) { # foo = ...
-        my $key = $1;
-        my $val = $2;
-	
-	if (ref($value) eq "ARRAY") {
-	  confess "expecting value, found key, value pair at line $line";
-	}
+	$line++;
 
-	$value->{$key} = $val;
-      } elsif (/^\s*"(.*)"\s*/ || # "..."
-               /^\s*(.*?)\s*$/) { # ...
-        my $val = $1;
+	next if m|^\s*#|;
+	next if m|^\s*$|;
 	
-	if (ref($value) ne "ARRAY") {
-	  confess "expecting key,value pair, found value at line $line";
+	if (/^\s*((?:\w|-)+)\s*=\s*\(\s*$/) { # foo = ( 
+	    if (ref($value) eq "ARRAY") {
+		confess "unexpected key,value pair in $filename at line $line";
+	    }
+	    
+	    my $key = $1;
+	    
+	    my $new = [];
+	    $value->{$key} = $new;
+	    $value = $new;
+	    push @stack, $value;
+	} elsif (/^\s*\(\s*$/) { # (
+	    if (ref($value) ne "ARRAY") {
+		confess "unexpected array entry in $filename at line $line";
+	    }
+	    
+	    my $new = [];
+	    push @{$value}, $new;
+	    $value = $new;
+	    push @stack, $value;
+	} elsif (/^\s*\)\s*$/) { # )
+	    if (ref($value) ne "ARRAY") {
+		confess "mismatched closing round bracket in $filename at line $line";
+	    }
+	    if ($#stack == 0) {
+		confess "too many closing curley bracket in $filename at line $line";
+	    }
+	    
+	    pop @stack;
+	    $value = $stack[$#stack];
+	} elsif (/^\s*((?:\w|-)+)\s*=\s*{\s*$/) { # foo = {
+	    if (ref($value) eq "ARRAY") {
+		confess "unexpected key,value pair in $filename at line $line";
+	    }
+	    
+	    my $key = $1;
+	    
+	    my $new = {};
+	    $value->{$key} = $new;
+	    $value = $new;
+	    push @stack, $value;
+	} elsif (/^\s*{\s*$/) { # {
+	    if (ref($value) ne "ARRAY") {
+		confess "unexpected array entry in $filename at line $line";
+	    }
+	    
+	    my $new = {};
+	    push @{$value}, $new;
+	    $value = $new;
+	    push @stack, $value;
+	} elsif (/^\s*}\s*$/) { # }
+	    if (ref($value) eq "ARRAY") {
+		confess "mismatched closing curly bracket in $filename at line $line";
+	    }
+	    if ($#stack == 0) {
+		confess "too many closing curley bracket in $filename at line $line";
+	    }
+	    
+	    pop @stack;
+	    $value = $stack[$#stack];
+	} elsif (/^\s*((?:\w|-)+)\s*=\s*"(.*)"\s*$/ || # foo = "..."
+		 /^\s*((?:\w|-)+)\s*=\s*(.*?)\s*$/) { # foo = ...
+	    my $key = $1;
+	    my $val = $2;
+	    
+	    if (ref($value) eq "ARRAY") {
+		confess "expecting value, found key, value pair at line $line";
+	    }
+	    
+	    $value->{$key} = $val;
+	} elsif (/^\s*"(.*)"\s*/ || # "..."
+		 /^\s*(.*?)\s*$/) { # ...
+	    my $val = $1;
+	    
+	    if (ref($value) ne "ARRAY") {
+		confess "expecting key,value pair, found value at line $line";
+	    }
+	    
+	    push @{$value}, $val;
 	}
 	
-	push @{$value}, $val;
-      }
-    }
-    
+    }		 
     if ($#stack != 0) {
-      confess "missing closing bracket in $self->{filename} at line $line";
+	confess "missing closing bracket in $filename at line $line";
+    }
+		 
+    $self->{record} = $stack[$#stack];
+}
+    
+sub save {
+    my $self = shift;
+    my $file = shift;
+    
+    my $fh;
+    if (ref($file)) {
+	if (!$file->isa("IO::Handle")) {
+	    confess "file must be an instance of IO::Handle";
+	}
+	$fh = $file;
+    } else {
+	$fh = IO::File->new(">$file")
+	    or confess "cannot write to $file: $!";
+    }
+
+    foreach my $key (keys %{$self->{record}}) {
+	print $fh "$key = ";
+	$self->_format($fh, $self->{record}->{$key}, "");
     }
     
-    $self->{params} = $stack[$#stack];
-  }
+    $fh->close();
+}
 
+sub _format {
+    my $self = shift;
+    my $fh = shift;
+    my $value = shift;
+    my $indent = shift;
 
-sub param
-  {
+    my $ref = ref($value);
+    
+    if ($ref) {
+	if ($ref eq "HASH") {
+	    $self->_format_hash($fh, $value, $indent);
+	} elsif ($ref eq "ARRAY") {
+	    $self->_format_array($fh, $value, $indent);
+	} else {
+	    confess "unhandled reference $ref. Configuration files" .
+		"can only contain unblessed scalars, array or hash references";
+	}
+    } else {
+	$self->_format_scalar($fh, $value, $indent);
+    }
+}
+
+sub _format_hash {
+    my $self = shift;
+    my $fh = shift;
+    my $record = shift;
+    my $indent = shift;
+    
+    print $fh "{\n";
+    foreach my $key (keys %{$record}) {
+	print $fh "$indent  $key = ";
+	$self->_format($fh, $record->{$key}, "$indent  ");
+    }
+    print $fh "$indent}\n";
+}
+
+sub _format_array {
+    my $self = shift;
+    my $fh = shift;
+    my $list = shift;
+    my $indent = shift;
+    
+    print $fh "(\n";
+    foreach my $element (@{$list}) {
+	print $fh "$indent  ";
+	$self->_format($fh, $element, "$indent  ");
+	
+    }
+    print $fh "$indent)\n";
+}
+
+sub _format_scalar {
+    my $self = shift;
+    my $fh = shift;
+    my $value = shift;
+    my $indent = shift;
+    
+    if ($value =~ /^\s+/ ||
+	$value =~ /\s+$/) {
+	print $fh "\"$value\"\n";
+    } else {
+	print $fh "$value\n";
+    }
+}
+
+sub param {
+    my $self = shift;
+    
+    if (warnings::enabled()) {
+	cluck "use of deprecated 'param' method. use 'get' instead";
+    }
+
+    return $self->get(@_);
+}
+
+sub get {
     my $self = shift;
     my $key = shift;
     
     my @key = split /\./, $key;
     
-    my $entry = $self->{params};
+    my $entry = $self->{record};
     foreach (@key) {
-      if (ref($entry) ne "HASH") {
-        if (@_) {
-          return shift;
+	if (ref($entry) ne "HASH") {
+	    if (@_) {
+		return shift;
+	    }
+	    confess "cannot find parameter $key";
 	}
-	confess "cannot find parameter $key";
-      }
-      
-      if (!exists $entry->{$_}) {
-        if (@_) {
-          return shift;
+	
+	if (!exists $entry->{$_}) {
+	    if (@_) {
+		return shift;
+	    }
+	    confess "cannot find parameter $key";
 	}
-	confess "cannot find parameter $key";
-      }
-      
-      $entry = $entry->{$_};
+	
+	$entry = $entry->{$_};
     }
     
     return $entry;
-  }
+}
 
+
+sub set {
+    my $self = shift;
+    my $key = shift;
+    my $value = shift;
+    
+    my @key = split /\./, $key;
+    
+    my $entry = $self->{record};
+    foreach (my $i = 0 ; $i <= $#key ; $i++) {
+	if (ref($entry) ne "HASH") {
+	    confess "cannot find parameter $key";
+	}
+
+	if ($i == $#key) {
+	    $entry->{$key[$i]} = $value;
+	} else {
+	    if (!exists $entry->{$key[$i]}) {
+		confess "cannot find parameter $key";
+	    }
+	    $entry = $entry->{$key[$i]};
+	}
+    }
+}
+
+
+sub record {
+    my $self = shift;
+    
+    return $self->{record};
+}
 
 1 # So that the require or use succeeds.
 

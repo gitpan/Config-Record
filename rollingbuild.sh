@@ -23,4 +23,12 @@ make install
 
 rm -f $NAME-*.tar.gz
 make dist
-rpmbuild -ta --clean $NAME-*.tar.gz
+
+if [ -f /usr/bin/rpmbuild ]; then
+  rpmbuild -ta --clean $NAME-*.tar.gz
+fi
+
+if [ -f /usr/bin/fakeroot ]; then
+  fakeroot debian/rules clean
+  fakeroot debian/rules DESTDIR=$HOME/packages/debian binary
+fi

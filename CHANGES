@@ -1,6 +1,16 @@
 Change Log for Config::Record
 =============================
 
+v1.0.3 (on 14-05-2004)
+----------------------
+
+ * When slurping filehandles only change $/ locally
+ * Add 'save' method to write a config file back to disk
+ * Add 'set' method for changing a config value
+ * Add 'get' method to replace 'param' and print deprecation
+   warning for all use of 'param' when 'use warnings' is in
+   effect (no warnings 'Config::Record' to disable this).
+
 v1.0.2 (on 05-04-2004)
 ----------------------
 

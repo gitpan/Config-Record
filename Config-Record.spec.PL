@@ -67,7 +67,7 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %doc AUTHORS
-%doc COPYING
+%doc LICENSE
 %doc README
 %{perlsiteman3}/*
 %{perlsitelib}/Config/Record.pm

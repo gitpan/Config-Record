@@ -8,3 +8,6 @@ CVS
 .#.*
 #.*
 ^Makefile$
+build-stamp
+debian/files
+debian/libconfig-record-perl.*

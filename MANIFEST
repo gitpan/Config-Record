@@ -1,14 +1,17 @@
 AUTHORS
 CHANGES
-COPYING
-Config-Record.spec
 Config-Record.spec.PL
 INSTALL
-MANIFEST
+LICENSE
+MANIFEST			This list of files
 MANIFEST.SKIP
 Makefile.PL
-Makefile.old
 README
+debian/README.Debian
+debian/changelog
+debian/control
+debian/copyright
+debian/rules
 lib/Config/Record.pm
 lib/Config/Record.pod
 rollingbuild.sh

@@ -2,26 +2,46 @@
 
 =head1 NAME
 
-Config::Record - loading of configuration records
+Config::Record - Configuration file access
 
 =head1 SYNOPSIS
 
   use Config::Record;
 
-  my $config = Config::Record->new(file => $filename);
-  my $config = Config::Record->new(file => $filehandle);
-  
-  my $param = $config->param($key, [$default]);
+
+  # Create an empty record & then load from file
+  my $config = Config::Record->new();
+  $config->load("/etc/myapp.cfg");
+
+  # Create & load, then save to filename
+  my $config = Config::Record->new(file => "/etc/myapp.cfg");  
+  $config->save("/etc/myapp.cfg");
+
+  # Load / save from filehandle
+  my $fh = IO::File->new("/etc/myapp.cfg");
+  my $config = Config::Record->new(file => $fh);
+  $config->save($fh);
+
+  # Get a config value, throw error if not found
+  my $value = $config->get("foo.bar");
+
+  # Get a config value, return 'eek' if not found
+  my $value = $config->get("foo.bar", "eek");
+
+  # Set a value
+  $config->set("foo.bar", "wizz");
+
+  my $record = $config->record();
 
 =head1 DESCRIPTION
 
-This module provides for loading and saving of simple configuration
-file records. Entries in the configuration file are essentially
-key,value pairs, with the key and values separated by a single equals
-symbol. The C<key> consists only of alphanumeric characters. There are
-three types of values, scalar values can contain anything except newlines.
-Trailing whitespace will be trimmed unless the value is surrounded in
-double quotes. eg
+This module provides an API for loading and saving of simple configuration
+file records. Entries in the configuration file are essentially key,value 
+pairs, with the key and values separated by a single equals symbol. The 
+C<key> consists only of alphanumeric characters. There are three types of 
+values, scalar values can contain anything except newlines. Trailing 
+whitespace will be trimmed unless the value is surrounded in double 
+quotes. eg
 
   foo = Wizz
   foo = "Wizz....    "
@@ -43,11 +63,7 @@ eg
     two = "Wizz....  "
   }
 
-Arrays and hashes can be nested to arbitrary depth.
-While array entries can be optionally separated by commas,
-howevere, this still does not allow more than one entry
-per line. Likewise lines can be terminated by a redundant
-semicolon if desired.
+Arrays and hashes can be nested to arbitrary depth. 
 
 
 =head1 EXAMPLE
@@ -80,13 +96,69 @@ semicolon if desired.
 
 =pod
 
-=item my $cache = Config::Record->new(file => $file);
+=item my $config = Config::Record->new([file => $file]);
 
 Creates a new config object, loading parameters from the file specified
 by the C<file> parameter. The C<file> parameter can either be a string
-representing a fully qualified filename, or a IO::Handle object.
+representing a fully qualified filename, or a IO::Handle object. If the
+C<file> parameter is not supplied then an empty configuration record
+is created.
+
+
+=item $config->load($file);
+
+Loads and parses a configuration record. The C<file> parameter can either
+be a string representing a fully qualified filename, or an IO::Handle 
+object. Prior to loading the record, the current contents of this 
+configuration are cleared.
+
+=item $config->save($file);
+
+Saves the configuration record to a file. The C<file> parameter can either
+be a string representing a fully qualified filename, or an IO::Handle
+object opened for writing.
+
+=item $config->get($key[, $default]);
+
+Gets the value of a configuration parameter corresponding to the name
+C<key>. If there is no value in the record, then the optional C<default> 
+is returned.
+
+=item $config->param($key[, $default]);
+
+This method is a (deprecated) alias for $config->get($key[, $default]).
+It will be removed in a future release.
+
+=item $config->set($key, $value);
+
+Sets the value of a configuration parameter corresponding to the
+name C<key>. 
+
+=item my $record = $config->record();
+
+Retrieves a hash reference for the entire configuration record. Currently
+this is the actual internal storage record, so changes will modify the
+configuration. In the next release this will be changed to be a deep clone
+of the internal storage record.
 
 =back 4
+
+=head1 BUGS
+
+Config::Record has the following limitations
+
+ * If you load and then save a configuration file all comments are
+    removed & whitespace normalized.
+
+ * Ordering of elements in hash ref are not preserved across load
+   and save sequence
+
+ * It is not possible to have a value continue across multiple lines
+
+ * When getting a parameter value it is not possible to specify an
+   index into an array reference, eg $cfg->get('foo.bar[3].wizz');
+
+It is planned to fix all these problems in a future release.
 
 =head1 AUTHORS
 
