@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.7 2004/09/26 23:31:38 dan Exp $
+# $Id: Record.pm,v 1.8 2004/10/10 22:40:29 dan Exp $
 
 package Config::Record;
 
@@ -30,7 +30,7 @@ use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.0.4";
+$VERSION = "1.0.5";
 
 sub new {
     my $proto = shift;
@@ -89,7 +89,8 @@ sub _parse {
     my $lineno = 0;
 
     my @lines = split /\n/, $data;
-    while (my $line = shift @lines) {
+
+    foreach my $line (@lines) {
 	$lineno++;
 	warn "$lineno: '$line' '$here' '$continuation'\n" if $self->{debug};
 	next if $line =~ m|^\s*#|;

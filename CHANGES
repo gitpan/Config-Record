@@ -1,6 +1,13 @@
 Change Log for Config::Record
 =============================
 
+v1.0.5 (on 10-10-2004)
+----------------------
+
+ * Fixed dumb mistake which would cause processing of
+   configuration file to stop when encountering a blank
+   line.
+
 v1.0.4 (on 26-09-2004)
 ----------------------
 

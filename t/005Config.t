@@ -1,6 +1,6 @@
-# $Id: 005Config.t,v 1.4 2004/09/26 23:31:38 dan Exp $
+# $Id: 005Config.t,v 1.5 2004/10/10 22:40:29 dan Exp $
 
-use Test::More tests => 28;
+use Test::More tests => 37;
 
 BEGIN { use_ok("Config::Record") }
 
@@ -16,6 +16,7 @@ no warnings 'Config::Record';
 my $config = <<END;
   name = Foo
   title = "Wizz bang wallop"
+
   label = "First string " \\
           "split across"
   description = <<EOF
@@ -23,6 +24,9 @@ This is a multi-line paragraph.
 This is the second line.
 And the third
 EOF
+# Some delibrate blank lines to test parsing...
+
+
   eek = ( # Testing an array
     OOhh
     " Aahhh "
@@ -93,6 +97,10 @@ is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 # Test defaults
 is($cfg->param("nada", "eek"), "eek", "Defaults");
 
+# Test nested hash/array lookups
+ok(defined $cfg->param("wibble.nice"), "Hash key defined");
+ok(defined $cfg->param("wibble.nice.ooh"), "Hash, hash key defined");
+ok($cfg->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Now test the constructor with a file handle
 $fh = IO::File->new($file);
@@ -123,6 +131,11 @@ is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
 is($cfg->param("nada", "eek"), "eek", "Defaults");
+
+# Test nested hash/array lookups
+ok(defined $cfg->param("wibble.nice"), "Hash key defined");
+ok(defined $cfg->param("wibble.nice.ooh"), "Hash, hash key defined");
+ok($cfg->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Test with empty constructor & load method
 
@@ -183,6 +196,11 @@ is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
 is($cfg2->param("nada", "eek"), "eek", "Saved defaults");
+
+# Test nested hash/array lookups
+ok(defined $cfg2->param("wibble.nice"), "Hash key defined");
+ok(defined $cfg2->param("wibble.nice.ooh"), "Hash, hash key defined");
+ok($cfg2->param("wibble.nice.ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Now recursively compare entire hash
 eq_hash($cfg->record, $cfg2->record, "Entire hash");
