@@ -1,0 +1,21 @@
+IO::File::Cached - load on demand caching of files
+--------------------------------------------------
+
+The IO::File::Cached module requires the Cache::Cache
+module for caching of files. This in turn requires
+
+ Digest::MD5
+ IPC::ShareLite
+ Storable
+ Error
+ File::Space
+
+
+Feedback, bug reports, patches
+------------------------------
+
+Please send patches in unified diff format to:
+
+	Daniel Berrange <dan@berrange.com>
+
+-- End

@@ -1,0 +1,12 @@
+AUTHORS
+COPYING
+Config-Record.spec
+Config-Record.spec.PL
+INSTALL
+MANIFEST
+MANIFEST.SKIP
+Makefile.PL
+README
+lib/Config/Record.pm
+rollingbuild.sh
+t/005Config.t
