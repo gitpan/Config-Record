@@ -1,6 +1,14 @@
 Change Log for Config::Record
 =============================
 
+v1.0.2 (on 05-04-2004)
+----------------------
+
+ * Fix stupid mistake of missing 'use IO::File' in Config::Record,
+   not caught by test suite.
+ * Make RPMs builds portable across Debian & Red Hat by forcing
+   man(3) install dir to always be $siteprefix/share/man/man3.
+
 v1.0.1 (on 01-04-2004)
 ----------------------
 

@@ -1,6 +1,6 @@
 # Copyright (C) 2001-2004 Daniel Berrange <dan@berrange.com>
 #
-# $Id: Config-Record.spec.PL,v 1.3 2004/04/01 19:32:57 dan Exp $
+# $Id: Config-Record.spec.PL,v 1.4 2004/04/05 10:10:57 dan Exp $
 
 use strict;
 
@@ -24,8 +24,8 @@ __DATA__
 
 %define perlsitearch %(perl -e 'use Config; print $Config{installsitearch}')
 %define perlsitelib %(perl -e 'use Config; print $Config{installsitelib}')
-%define perlman1dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man1"')
-%define perlman3dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man3"')
+%define perlsiteprefix %(perl -e 'use Config; print $Config{siteprefix}')
+%define perlsiteman3 %{perlsiteprefix}/share/man/man3
 %define perlversion %(perl -e 'use Config; print $Config{version}')
 
 %define appname Config-Record
@@ -51,13 +51,13 @@ to an arbitrary depth.
 
 
 %build
-perl Makefile.PL
+perl Makefile.PL PREFIX=$RPM_BUILD_ROOT/usr
 make
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make PREFIX=$RPM_BUILD_ROOT/usr install
+make install INSTALLSITEMAN3DIR=$RPM_BUILD_ROOT%{perlsiteman3}
 find $RPM_BUILD_ROOT%{perlsitearch} -name perllocal.pod -exec rm -f {} \;
 
 %clean
@@ -69,7 +69,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc AUTHORS
 %doc COPYING
 %doc README
-%{perlman3dir}/*
+%{perlsiteman3}/*
 %{perlsitelib}/Config/Record.pm
 %{perlsitelib}/Config/Record.pod
 %{perlsitearch}/auto/Config/Record/

@@ -18,18 +18,17 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.3 2004/04/01 19:32:57 dan Exp $
+# $Id: Record.pm,v 1.4 2004/04/05 10:10:43 dan Exp $
 
 package Config::Record;
 
 use strict;
 use Carp qw(confess);
-use IO::Handle;
+use IO::File;
 
-use vars qw($VERSION $RELEASE);
+use vars qw($VERSION);
 
-$VERSION = "1.0.1";
-$RELEASE = "1";
+$VERSION = "1.0.2";
 
 sub new
   {

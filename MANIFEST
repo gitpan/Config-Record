@@ -1,11 +1,13 @@
 AUTHORS
 CHANGES
 COPYING
+Config-Record.spec
 Config-Record.spec.PL
 INSTALL
 MANIFEST
 MANIFEST.SKIP
 Makefile.PL
+Makefile.old
 README
 lib/Config/Record.pm
 lib/Config/Record.pod

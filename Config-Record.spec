@@ -2,15 +2,15 @@
 
 %define perlsitearch %(perl -e 'use Config; print $Config{installsitearch}')
 %define perlsitelib %(perl -e 'use Config; print $Config{installsitelib}')
-%define perlman1dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man1"')
-%define perlman3dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man3"')
+%define perlsiteprefix %(perl -e 'use Config; print $Config{siteprefix}')
+%define perlsiteman3 %{perlsiteprefix}/share/man/man3
 %define perlversion %(perl -e 'use Config; print $Config{version}')
 
 %define appname Config-Record
 
 Summary: Config::Record - Simple configuration records
 Name: perl-%{appname}
-Version: 1.0.1
+Version: 1.0.2
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
@@ -29,13 +29,13 @@ to an arbitrary depth.
 
 
 %build
-perl Makefile.PL
+perl Makefile.PL PREFIX=$RPM_BUILD_ROOT/usr
 make
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make PREFIX=$RPM_BUILD_ROOT/usr install
+make install INSTALLSITEMAN3DIR=$RPM_BUILD_ROOT%{perlsiteman3}
 find $RPM_BUILD_ROOT%{perlsitearch} -name perllocal.pod -exec rm -f {} \;
 
 %clean
@@ -47,7 +47,7 @@ rm -rf $RPM_BUILD_ROOT
 %doc AUTHORS
 %doc COPYING
 %doc README
-%{perlman3dir}/*
+%{perlsiteman3}/*
 %{perlsitelib}/Config/Record.pm
 %{perlsitelib}/Config/Record.pod
 %{perlsitearch}/auto/Config/Record/

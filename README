@@ -1,15 +1,9 @@
-IO::File::Cached - load on demand caching of files
+Config::Record - Simple configuration records
 --------------------------------------------------
 
-The IO::File::Cached module requires the Cache::Cache
-module for caching of files. This in turn requires
-
- Digest::MD5
- IPC::ShareLite
- Storable
- Error
- File::Space
-
+Config::Record provides a module for loading configuration
+records. It supports scalar, array and hash parameters nested
+to an arbitrary depth.
 
 Feedback, bug reports, patches
 ------------------------------
