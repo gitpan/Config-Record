@@ -10,7 +10,7 @@
 
 Summary: Config::Record - Simple configuration records
 Name: perl-%{appname}
-Version: 1.0.3
+Version: 1.0.4
 Release: 1
 Copyright: GPL
 Group: Applications/Internet

@@ -1,6 +1,14 @@
 Change Log for Config::Record
 =============================
 
+v1.0.4 (on 26-09-2004)
+----------------------
+
+ * Allow comments at the end of lines following a quoted
+   string, an open/close bracket, an open/close brace
+ * Allow long lines to be split with \ to break lines
+ * Allow multi-line strings to be input using <<EOF
+
 v1.0.3 (on 14-05-2004)
 ----------------------
 
@@ -33,4 +41,4 @@ v1.0.0: (12-02-2004)
 
  * Initial release.
   
-  
+-- End

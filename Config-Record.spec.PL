@@ -1,6 +1,6 @@
 # Copyright (C) 2001-2004 Daniel Berrange <dan@berrange.com>
 #
-# $Id: Config-Record.spec.PL,v 1.4 2004/04/05 10:10:57 dan Exp $
+# $Id: Config-Record.spec.PL,v 1.5 2004/05/14 14:04:59 dan Exp $
 
 use strict;
 

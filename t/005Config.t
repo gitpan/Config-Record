@@ -1,28 +1,39 @@
-# $Id: 005Config.t,v 1.3 2004/05/14 13:44:49 dan Exp $
+# $Id: 005Config.t,v 1.4 2004/09/26 23:31:38 dan Exp $
 
-BEGIN { $| = 1; print "1..17\n"; }
-END { print "not ok 1\n" unless $loaded; }
+use Test::More tests => 28;
 
+BEGIN { use_ok("Config::Record") }
+
+$| = undef;
 use warnings;
-use Config::Record;
 use Carp qw(confess);
+use Test::Harness;
 use File::Temp qw(tempfile);
 use IO::File;
 
 no warnings 'Config::Record';
 
-$loaded = 1;
-print "ok 1\n";
-
-my $config = <<EOF;
+my $config = <<END;
   name = Foo
   title = "Wizz bang wallop"
-  eek = (
+  label = "First string " \\
+          "split across"
+  description = <<EOF
+This is a multi-line paragraph.
+This is the second line.
+And the third
+EOF
+  eek = ( # Testing an array
     OOhh
-    Aahhh
-    Wizz
+    " Aahhh "
+    Wizz \\
+    Bang
+    <<EOF
+A long paragraph in
+here
+EOF
   )
-  people = (
+  people = ( # Testing an array of hashes
     {
       forename = John
       surnamne = Doe
@@ -32,11 +43,11 @@ my $config = <<EOF;
       surname = One
     }
   )
-  wizz = {
+  wizz = { # Testing a hash
     foo = "Elk"
     ooh = "fds"
   }
-  wibble = {
+  wibble = { # Testing a hash of hashes
     nice = {
       ooh = (
         weee
@@ -47,42 +58,71 @@ my $config = <<EOF;
       )
     }
   }
-EOF
+END
 
 my ($fh, $file) = tempfile("tmpXXXXXXX", UNLINK => 1);
 print $fh $config;
 close $fh;
 
 # First test the constructor with a filename
-my $cfg = Config::Record->new(file => $file);
+my $cfg = Config::Record->new(file => $file, debug => ($ENV{TEST_DEBUG} || 0));
 
 # Test plain string
-print "not " unless $cfg->param("name") eq "Foo";
-print "ok 2\n";
+is($cfg->param("name"), "Foo", "Plain string");
 
 # Test quoted string
-print "not " unless $cfg->param("title") eq "Wizz bang wallop";
-print "ok 3\n";
+is($cfg->param("title"), "Wizz bang wallop", "Quoted string");
+
+# Test continuation
+is($cfg->param("label"), "First string split across", "Continuation");
+
+# Test here doc
+is($cfg->param("description"), <<EOF
+This is a multi-line paragraph.
+This is the second line.
+And the third
+EOF
+, "Here doc");
+
+# Test array element continuation
+is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+
+# Test array here doc
+is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-print "not " unless $cfg->param("nada", "eek") eq "eek";
-print "ok 4\n";
+is($cfg->param("nada", "eek"), "eek", "Defaults");
+
 
 # Now test the constructor with a file handle
 $fh = IO::File->new($file);
 $cfg = Config::Record->new(file => $fh);
 
 # Test plain string
-print "not " unless $cfg->param("name") eq "Foo";
-print "ok 5\n";
+is($cfg->param("name"), "Foo", "Plain string");
 
 # Test quoted string
-print "not " unless $cfg->param("title") eq "Wizz bang wallop";
-print "ok 6\n";
+is($cfg->param("title"), "Wizz bang wallop", "Quoted string");
+
+# Test continuation
+is($cfg->param("label"), "First string split across", "Continuation");
+
+# Test here doc
+is($cfg->param("description"), <<EOF
+This is a multi-line paragraph.
+This is the second line.
+And the third
+EOF
+, "Here doc");
+
+# Test array element continuation
+is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+
+# Test array here doc
+is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-print "not " unless $cfg->param("nada", "eek") eq "eek";
-print "ok 7\n";
+is($cfg->param("nada", "eek"), "eek", "Defaults");
 
 # Test with empty constructor & load method
 
@@ -90,29 +130,24 @@ $cfg = Config::Record->new();
 
 # Shouldn't be anything there yet
 eval "$cfg->param('name')";
-print "not " unless $@;
-print "ok 8\n";
+ok($@ ? 1 : 0, "No defaults");
 
 # Lets set an option
 $cfg->set("name" => "Blah");
-print "not " unless $cfg->param("name") eq "Blah";
-print "ok 9\n";
+is($cfg->param("name"), "Blah", "Set option");
 
 # Now load the config record
 $fh = IO::File->new($file);
 $cfg->load($fh);
 
 # Test plain string - should have overwritten 'Blah'
-print "not " unless $cfg->param("name") eq "Foo";
-print "ok 10\n";
+is($cfg->param("name"), "Foo", "Reload plain string");
 
 # Test quoted string
-print "not " unless $cfg->param("title") eq "Wizz bang wallop";
-print "ok 11\n";
+is($cfg->param("title"), "Wizz bang wallop", "Reloaded quoted string");
 
 # Test defaults
-print "not " unless $cfg->param("nada", "eek") eq "eek";
-print "ok 12\n";
+is($cfg->param("nada", "eek"), "eek", "Reloaded defaults");
 
 
 # Now write it out to another file....
@@ -124,28 +159,40 @@ $cfg->save($file2);
 my $cfg2 = Config::Record->new(file => $file2);
 
 # Test plain string
-print "not " unless $cfg2->param("name") eq "Foo";
-print "ok 13\n";
+is($cfg2->param("name"), "Foo", "Saved plain string");
 
 # Test quoted string
-print "not " unless $cfg2->param("title") eq "Wizz bang wallop";
-print "ok 14\n";
+is($cfg2->param("title"), "Wizz bang wallop", "Saved quoted string");
+
+# Test continuation
+is($cfg->param("label"), "First string split across", "Continuation");
+
+# Test here doc
+is($cfg->param("description"), <<EOF
+This is a multi-line paragraph.
+This is the second line.
+And the third
+EOF
+, "Here doc");
+
+# Test array element continuation
+is($cfg->param("eek")->[2], "Wizz Bang", "Continuation");
+
+# Test array here doc
+is($cfg->param("eek")->[3], "A long paragraph in\nhere\n", "Here doc");
 
 # Test defaults
-print "not " unless $cfg2->param("nada", "eek") eq "eek";
-print "ok 15\n";
+is($cfg2->param("nada", "eek"), "eek", "Saved defaults");
 
 # Now recursively compare entire hash
-print "not " unless &compare($cfg->record, $cfg2->record);
-print "ok 16\n";
+eq_hash($cfg->record, $cfg2->record, "Entire hash");
 
 # Finally test the constructor with bogus ref
 
 my $bogus = {};
 bless $bogus, "Bogus";
 eval "Config::Record->new(file => $bogus)";
-print "not " unless $@;
-print "ok 17\n";
+ok($@ ? 1 : 0, "Bogus constructor");
 
 
 exit 0;

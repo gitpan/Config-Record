@@ -46,6 +46,23 @@ quotes. eg
   foo = Wizz
   foo = "Wizz....    "
 
+Long lines can be split with a backslash character, without introducing
+newlines. Without double quotes, whitespace at beginning and end of lines
+will be trimmed eg
+
+  foo = This is a long \
+        line of text
+  foo = "This is a long " \
+        "line of text"
+
+Multi-line strings can be provided as 'HERE' documents, eg
+
+  foo = <<EOF
+This is a multiple paragraph
+block of text with newlines
+preserved
+EOF
+
 Array values  consist of a single right round bracket, following by
 one C<value> per line, terminated by a single left round bracket. eg
 
@@ -118,13 +135,13 @@ Saves the configuration record to a file. The C<file> parameter can either
 be a string representing a fully qualified filename, or an IO::Handle
 object opened for writing.
 
-=item $config->get($key[, $default]);
+=item my $value = $config->get($key[, $default]);
 
 Gets the value of a configuration parameter corresponding to the name
 C<key>. If there is no value in the record, then the optional C<default> 
 is returned.
 
-=item $config->param($key[, $default]);
+=item my $value = $config->param($key[, $default]);
 
 This method is a (deprecated) alias for $config->get($key[, $default]).
 It will be removed in a future release.
@@ -141,24 +158,33 @@ this is the actual internal storage record, so changes will modify the
 configuration. In the next release this will be changed to be a deep clone
 of the internal storage record.
 
-=back 4
+=back
 
 =head1 BUGS
 
 Config::Record has the following limitations
 
- * If you load and then save a configuration file all comments are
-    removed & whitespace normalized.
+=over 4
 
- * Ordering of elements in hash ref are not preserved across load
-   and save sequence
+=item *
 
- * It is not possible to have a value continue across multiple lines
+If you load and then save a configuration file all comments are
+removed & whitespace normalized.
 
- * When getting a parameter value it is not possible to specify an
-   index into an array reference, eg $cfg->get('foo.bar[3].wizz');
+=item *
 
-It is planned to fix all these problems in a future release.
+Ordering of elements in hash ref are not preserved across load
+and save sequence
+
+=item *
+
+When getting a parameter value it is not possible to specify an
+index into an array reference, eg $cfg->get('foo.bar[3].wizz');
+
+=back
+
+These limitations may be fixed in a future release if there is
+demand from users...
 
 =head1 AUTHORS
 

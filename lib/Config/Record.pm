@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.5 2004/05/14 13:44:49 dan Exp $
+# $Id: Record.pm,v 1.7 2004/09/26 23:31:38 dan Exp $
 
 package Config::Record;
 
@@ -30,7 +30,7 @@ use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.0.3";
+$VERSION = "1.0.4";
 
 sub new {
     my $proto = shift;
@@ -39,6 +39,7 @@ sub new {
     my %params = @_;
     
     $self->{record} = {};
+    $self->{debug} = $params{debug};
     
     bless $self, $class;
     
@@ -80,97 +81,158 @@ sub _parse {
 
     my $value = {};
     my @stack = $value;
-    my $line = 0;
-    foreach (split /\n/, $data) {
-	$line++;
+    my $here;
+    my $continuation;
 
-	next if m|^\s*#|;
-	next if m|^\s*$|;
-	
-	if (/^\s*((?:\w|-)+)\s*=\s*\(\s*$/) { # foo = ( 
-	    if (ref($value) eq "ARRAY") {
-		confess "unexpected key,value pair in $filename at line $line";
+    my $LABEL = '((?:\w|-)+)';
+    my $TRAILING_WHITESPACE = '\s*(?:\#.*)?';
+    my $lineno = 0;
+
+    my @lines = split /\n/, $data;
+    while (my $line = shift @lines) {
+	$lineno++;
+	warn "$lineno: '$line' '$here' '$continuation'\n" if $self->{debug};
+	next if $line =~ m|^\s*#|;
+	next if $line =~ m|^\s*$|;
+
+	if ($here) {
+	    if ($line =~ /\s*${here}\s*$/) { # EOF
+		warn "$lineno: End of here doc\n" if $self->{debug};
+		$here = undef;
+		$continuation = undef;
+	    } else {                # ...
+		warn "$lineno: Middle of here doc\n" if $self->{debug};
+		${$continuation} .= $line . "\n";
 	    }
-	    
-	    my $key = $1;
-	    
-	    my $new = [];
-	    $value->{$key} = $new;
-	    $value = $new;
-	    push @stack, $value;
-	} elsif (/^\s*\(\s*$/) { # (
-	    if (ref($value) ne "ARRAY") {
-		confess "unexpected array entry in $filename at line $line";
+	} elsif ($continuation) {
+	    if ($line =~ /^\s*"(.*?)"\s*(\\)?\s*$/ || # "..."
+		$line =~ /^\s*(.*?)\s*(\\)?\s*$/) {   #  ...
+		warn "$lineno: Continuation\n" if $self->{debug};
+		${$continuation} .= $1;
+		$continuation = undef unless $2;
+	    } else {
+		warn "$lineno: unexpected input '$line'\n";
 	    }
-	    
-	    my $new = [];
-	    push @{$value}, $new;
-	    $value = $new;
-	    push @stack, $value;
-	} elsif (/^\s*\)\s*$/) { # )
-	    if (ref($value) ne "ARRAY") {
-		confess "mismatched closing round bracket in $filename at line $line";
+	} else {
+	    if ($line =~ /^\s*$LABEL\s*=\s*\(${TRAILING_WHITESPACE}$/) { # foo = ( 
+		warn "$lineno: Key with array\n" if $self->{debug};
+		if (ref($value) eq "ARRAY") {
+		    confess "unexpected key,value pair in $filename at line $lineno";
+		}
+		
+		my $key = $1;
+		
+		my $new = [];
+		$value->{$key} = $new;
+		$value = $new;
+		push @stack, $value;
+	    } elsif ($line =~ /^\s*\(${TRAILING_WHITESPACE}$/) { # (
+		warn "$lineno: Start of array\n" if $self->{debug};
+		if (ref($value) ne "ARRAY") {
+		    confess "unexpected array entry in $filename at line $lineno";
+		}
+		
+		my $new = [];
+		push @{$value}, $new;
+		$value = $new;
+		push @stack, $value;
+	    } elsif ($line =~ /^\s*\)${TRAILING_WHITESPACE}$/) { # )
+		warn "$lineno: End of array\n" if $self->{debug};
+		if (ref($value) ne "ARRAY") {
+		    confess "mismatched closing round bracket in $filename at line $lineno";
+		}
+		if ($#stack == 0) {
+		    confess "too many closing curley bracket in $filename at line $lineno";
+		}
+		
+		pop @stack;
+		$value = $stack[$#stack];
+	    } elsif ($line =~ /^\s*$LABEL\s*=\s*{${TRAILING_WHITESPACE}$/) { # foo = {
+		warn "$lineno: Key with hash\n" if $self->{debug};
+		if (ref($value) eq "ARRAY") {
+		    confess "unexpected key,value pair in $filename at line $lineno";
+		}
+		
+		my $key = $1;
+		
+		my $new = {};
+		$value->{$key} = $new;
+		$value = $new;
+		push @stack, $value;
+	    } elsif ($line =~ /^\s*{${TRAILING_WHITESPACE}$/) { # {
+		warn "$lineno: Start of hash\n" if $self->{debug};
+		if (ref($value) ne "ARRAY") {
+		    confess "unexpected array entry in $filename at line $lineno";
+		}
+		
+		my $new = {};
+		push @{$value}, $new;
+		$value = $new;
+		push @stack, $value;
+	    } elsif ($line =~ /^\s*}${TRAILING_WHITESPACE}$/) { # }
+		warn "$lineno: End of hash\n" if $self->{debug};
+		if (ref($value) eq "ARRAY") {
+		    confess "mismatched closing curly bracket in $filename at line $lineno";
+		}
+		if ($#stack == 0) {
+		    confess "too many closing curley bracket in $filename at line $lineno";
+		}
+		
+		pop @stack;
+		$value = $stack[$#stack];
+	    } elsif ($line =~ /^\s*$LABEL\s*=\s*<<(\w+)\s*$/) { # foo = <<EOF
+		warn "$lineno: Key with here doc\n" if $self->{debug};
+		my $key = $1;
+		my $val = "";
+		
+		$value->{$key} = $val;
+
+		$here = $2;
+		$continuation = \$value->{$key};
+	    } elsif ($line =~ /^\s*$LABEL\s*=\s*"(.*)"\s*(\\)?${TRAILING_WHITESPACE}$/ || # foo = "..."
+		     $line =~ /^\s*$LABEL\s*=\s*(.*?)(\\)?\s*$/) { # foo = ...
+		warn "$lineno: Key with string\n" if $self->{debug};
+		my $key = $1;
+		my $val = $2;
+		
+		if (ref($value) eq "ARRAY") {
+		    confess "expecting value, found key, value pair at line $lineno";
+		}
+		
+		$value->{$key} = $val;
+		warn "$lineno: Start continuation\n" if $3 && $self->{debug};
+		$continuation = \$value->{$key} if $3;
+	    } elsif ($line =~ /^\s*<<(\w+)\s*$/) { # <<EOF
+		warn "$lineno: Start of here doc\n" if $self->{debug};
+		my $val = "";
+		
+		if (ref($value) ne "ARRAY") {
+		    confess "expecting key,value pair, found value at line $lineno";
+		}
+
+		push @{$value}, $val;
+		
+		$here = $1;
+		$continuation = \$value->[$#{$value}];
+	    } elsif ($line =~ /^\s*"(.*)"\s*(\\)?${TRAILING_WHITESPACE}$/ || # "..."
+		     $line =~ /^\s*(.*?)(\\)?\s*$/) { # ...
+		warn "$lineno: Value\n" if $self->{debug};
+		my $val = $1;
+		
+		if (ref($value) ne "ARRAY") {
+		    confess "expecting key,value pair, found value at line $lineno";
+		}
+		
+		push @{$value}, $val;
+		
+		$continuation = \$value->[$#{$value}] if $2;
+	    } else {
+		warn "Unexpected value '$line'\n";
 	    }
-	    if ($#stack == 0) {
-		confess "too many closing curley bracket in $filename at line $line";
-	    }
-	    
-	    pop @stack;
-	    $value = $stack[$#stack];
-	} elsif (/^\s*((?:\w|-)+)\s*=\s*{\s*$/) { # foo = {
-	    if (ref($value) eq "ARRAY") {
-		confess "unexpected key,value pair in $filename at line $line";
-	    }
-	    
-	    my $key = $1;
-	    
-	    my $new = {};
-	    $value->{$key} = $new;
-	    $value = $new;
-	    push @stack, $value;
-	} elsif (/^\s*{\s*$/) { # {
-	    if (ref($value) ne "ARRAY") {
-		confess "unexpected array entry in $filename at line $line";
-	    }
-	    
-	    my $new = {};
-	    push @{$value}, $new;
-	    $value = $new;
-	    push @stack, $value;
-	} elsif (/^\s*}\s*$/) { # }
-	    if (ref($value) eq "ARRAY") {
-		confess "mismatched closing curly bracket in $filename at line $line";
-	    }
-	    if ($#stack == 0) {
-		confess "too many closing curley bracket in $filename at line $line";
-	    }
-	    
-	    pop @stack;
-	    $value = $stack[$#stack];
-	} elsif (/^\s*((?:\w|-)+)\s*=\s*"(.*)"\s*$/ || # foo = "..."
-		 /^\s*((?:\w|-)+)\s*=\s*(.*?)\s*$/) { # foo = ...
-	    my $key = $1;
-	    my $val = $2;
-	    
-	    if (ref($value) eq "ARRAY") {
-		confess "expecting value, found key, value pair at line $line";
-	    }
-	    
-	    $value->{$key} = $val;
-	} elsif (/^\s*"(.*)"\s*/ || # "..."
-		 /^\s*(.*?)\s*$/) { # ...
-	    my $val = $1;
-	    
-	    if (ref($value) ne "ARRAY") {
-		confess "expecting key,value pair, found value at line $line";
-	    }
-	    
-	    push @{$value}, $val;
 	}
-	
     }		 
     if ($#stack != 0) {
-	confess "missing closing bracket in $filename at line $line";
+	confess "missing closing bracket in $filename at line $lineno";
     }
 		 
     $self->{record} = $stack[$#stack];
@@ -256,10 +318,18 @@ sub _format_scalar {
     my $value = shift;
     my $indent = shift;
     
-    if ($value =~ /^\s+/ ||
-	$value =~ /\s+$/) {
+    if ($value =~ /\n/) {
+	$value .= "\n" unless $value =~ /\n$/;
+	print $fh "<<EOF\n";
+	print $fh $value;
+	print $fh "EOF\n";
+    } elsif ($value =~ /^\s+/ ||
+	     $value =~ /\s+$/) {
+	# XXX split long lines with \
+	# XXX escape embedded "
 	print $fh "\"$value\"\n";
     } else {
+	# XXX split long lines with \
 	print $fh "$value\n";
     }
 }
