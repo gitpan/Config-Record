@@ -1,13 +1,13 @@
-# $Id: 005Config.t,v 1.1 2004/02/10 19:03:50 dan Exp $
+# $Id: 005Config.t,v 1.2 2004/04/01 19:32:57 dan Exp $
 
-BEGIN { $| = 1; print "1..4\n"; }
+BEGIN { $| = 1; print "1..8\n"; }
 END { print "not ok 1\n" unless $loaded; }
 
-use Cache::MemoryCache;
 use Config::Record;
 use Carp qw(confess);
 use File::Temp qw(tempfile);
-	 
+use IO::File;
+
 $loaded = 1;
 print "ok 1\n";
 
@@ -39,12 +39,8 @@ my ($fh, $file) = tempfile("tmpXXXXXXX", UNLINK => 1);
 print $fh $config;
 close $fh;
 
-my $cache = Cache::MemoryCache->new( { namespace => 'Test',
-				       default_expires_in => 600 });
-
-my $cfg = Config::Record->new(filename => $file,
-                              cache => $cache);
-
+# First test the constructor with a filename
+my $cfg = Config::Record->new(file => $file);
 
 # Test plain string
 print "not " unless $cfg->param("name") eq "Foo";
@@ -58,7 +54,31 @@ print "ok 3\n";
 print "not " unless $cfg->param("nada", "eek") eq "eek";
 print "ok 4\n";
 
+# Now test the constructor with a file handle
+$fh = IO::File->new($file);
+$cfg = Config::Record->new(file => $fh);
+
+# Test plain string
+print "not " unless $cfg->param("name") eq "Foo";
+print "ok 5\n";
+
+# Test quoted string
+print "not " unless $cfg->param("title") eq "Wizz bang wallop";
+print "ok 6\n";
+
+# Test defaults
+print "not " unless $cfg->param("nada", "eek") eq "eek";
+print "ok 7\n";
+
 unlink $file;
+
+# Finally test the constructor with bogus ref
+
+my $bogus = {};
+bless $bogus, "Bogus";
+eval "Config::Record->new(file => $bogus)";
+print "not " unless $@;
+print "ok 8\n";
 
 # Local Variables:
 # mode: cperl

@@ -1,6 +1,6 @@
 AUTHORS
+CHANGES
 COPYING
-Config-Record.spec
 Config-Record.spec.PL
 INSTALL
 MANIFEST
@@ -8,5 +8,7 @@ MANIFEST.SKIP
 Makefile.PL
 README
 lib/Config/Record.pm
+lib/Config/Record.pod
 rollingbuild.sh
 t/005Config.t
+Config-Record.spec

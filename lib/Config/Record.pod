@@ -1,0 +1,103 @@
+=pod
+
+=head1 NAME
+
+Config::Record - loading of configuration records
+
+=head1 SYNOPSIS
+
+  use Config::Record;
+
+  my $config = Config::Record->new(file => $filename);
+  my $config = Config::Record->new(file => $filehandle);
+  
+  my $param = $config->param($key, [$default]);
+
+=head1 DESCRIPTION
+
+This module provides for loading and saving of simple configuration
+file records. Entries in the configuration file are essentially
+key,value pairs, with the key and values separated by a single equals
+symbol. The C<key> consists only of alphanumeric characters. There are
+three types of values, scalar values can contain anything except newlines.
+Trailing whitespace will be trimmed unless the value is surrounded in
+double quotes. eg
+
+  foo = Wizz
+  foo = "Wizz....    "
+
+Array values  consist of a single right round bracket, following by
+one C<value> per line, terminated by a single left round bracket. eg
+
+  foo = (
+    Wizz
+    "Wizz...    "
+  )
+
+Hash values consist of a single right curly bracket, followed by one
+key,value pair per line, terminated by a single left curly bracket.
+eg
+
+  foo = {
+    one = Wizz
+    two = "Wizz....  "
+  }
+
+Arrays and hashes can be nested to arbitrary depth.
+While array entries can be optionally separated by commas,
+howevere, this still does not allow more than one entry
+per line. Likewise lines can be terminated by a redundant
+semicolon if desired.
+
+
+=head1 EXAMPLE
+
+  name = Foo
+  title = "Wizz bang wallop"
+  eek = (
+    OOhh
+    Aahhh
+    Wizz
+  )
+  people = (
+    {
+      forename = John
+      surnamne = Doe
+    }
+    {
+      forename = Some
+      surname = One
+    }
+  )
+  wizz = {
+    foo = "Elk"
+    ooh = "fds"
+  }
+
+=head1 METHODS
+
+=over 4
+
+=pod
+
+=item my $cache = Config::Record->new(file => $file);
+
+Creates a new config object, loading parameters from the file specified
+by the C<file> parameter. The C<file> parameter can either be a string
+representing a fully qualified filename, or a IO::Handle object.
+
+=back 4
+
+=head1 AUTHORS
+
+Daniel Berrange <dan@berrange.com>
+
+=head1 COPYRIGHT
+
+Copyright (C) 2000-2004 Daniel P. Berrange <dan@berrange.com>
+
+=head1 SEE ALSO
+
+L<perl(1)>
+
+=cut

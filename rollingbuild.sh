@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NAME="IO-File-Cached"
+NAME="Config-Record"
 
 set -e
 
@@ -11,7 +11,7 @@ rm -rf MANIFEST blib
 
 # Make makefiles.
 
-perl Makefile.PL PREFIX=$AUTO_BUILD_PREFIX
+perl Makefile.PL PREFIX=$AUTO_BUILD_ROOT
 make manifest
 echo $NAME.spec >> MANIFEST
 
@@ -19,8 +19,8 @@ echo $NAME.spec >> MANIFEST
 make
 make test
 
-make install INSTALLMAN3DIR=$AUTO_BUILD_PREFIX/man/man3
+make install
 
 rm -f $NAME-*.tar.gz
 make dist
-rpm -ta --clean $NAME-*.tar.gz
+rpmbuild -ta --clean $NAME-*.tar.gz

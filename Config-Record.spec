@@ -2,30 +2,30 @@
 
 %define perlsitearch %(perl -e 'use Config; print $Config{installsitearch}')
 %define perlsitelib %(perl -e 'use Config; print $Config{installsitelib}')
-%define perlman1dir %(perl -e 'use Config; print $Config{installman1dir}')
-%define perlman3dir %(perl -e 'use Config; print $Config{installman3dir}')
+%define perlman1dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man1"')
+%define perlman3dir %(perl -e 'use Config; print "$Config{siteprefix}/man/man3"')
 %define perlversion %(perl -e 'use Config; print $Config{version}')
 
+%define appname Config-Record
+
 Summary: Config::Record - Simple configuration records
-Name: perl-Config-Record
-Version: 1.0.0
+Name: perl-%{appname}
+Version: 1.0.1
 Release: 1
 Copyright: GPL
 Group: Applications/Internet
-Source: %{name}-%{version}.tar.gz
-BuildRoot: /var/tmp/%{name}-%{version}-root
+Source: %{appname}-%{version}.tar.gz
+BuildRoot: /var/tmp/%{appname}-%{version}-root
 BuildArchitectures: noarch
-#Requires: perl >= %{perlversion}
-Requires: perl
+Requires: perl = %{perlversion}
 
 %description
-
 Config::Record provides a module for loading configuration
 records. It supports scalar, array and hash parameters nested
 to an arbitrary depth.
  
 %prep
-%setup -q
+%setup -q -n %{appname}-%{version}
 
 
 %build
@@ -35,9 +35,8 @@ make
 
 %install
 rm -rf $RPM_BUILD_ROOT
-make PREFIX=$RPM_BUILD_ROOT/usr INSTALLMAN3DIR=$RPM_BUILD_ROOT/usr/share/man/man3 install
-find $RPM_BUILD_ROOT/usr/lib/perl5 -name perllocal.pod -exec rm -f {} \;
-
+make PREFIX=$RPM_BUILD_ROOT/usr install
+find $RPM_BUILD_ROOT%{perlsitearch} -name perllocal.pod -exec rm -f {} \;
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -49,5 +48,6 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING
 %doc README
 %{perlman3dir}/*
-%{perlsitelib}/IO/File/Cached.pm
-[B
+%{perlsitelib}/Config/Record.pm
+%{perlsitelib}/Config/Record.pod
+%{perlsitearch}/auto/Config/Record/

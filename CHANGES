@@ -1,0 +1,18 @@
+Change Log for Config::Record
+=============================
+
+v1.0.1 (on 01-04-2004)
+----------------------
+
+ * Fix building of RPMs
+ * Remove dependancy on IO::File::Cached & File::Path::Localize in 
+   favour of letting application developer use these when required.
+ * Split POD out into separate file, since MakeMaker (un)helpfully
+   skips any file matching /(config|setup).*\.pm/ :-(
+
+v1.0.0: (12-02-2004)
+--------------------
+
+ * Initial release.
+  
+  
