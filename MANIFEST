@@ -1,19 +1,22 @@
 AUTHORS
+autobuild.sh
 CHANGES
 Config-Record.spec.PL
-INSTALL
-LICENSE
-MANIFEST			This list of files
-MANIFEST.SKIP
-Makefile.PL
-README
-debian/README.Debian
 debian/changelog
 debian/control
 debian/copyright
+debian/README.Debian
 debian/rules
+INSTALL
 lib/Config/Record.pm
 lib/Config/Record.pod
-rollingbuild.sh
+LICENSE
+Makefile.PL
+MANIFEST			This list of files
+MANIFEST.SKIP
+README
 t/005Config.t
+t/010-pod.t
+t/015-pod-coverage.t
 Config-Record.spec
+META.yml                                 Module meta-data (added by MakeMaker)

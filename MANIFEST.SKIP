@@ -12,3 +12,6 @@ build-stamp
 debian/files
 debian/libconfig-record-perl.*
 cover_db
+^.hg/
+^.hgtags
+^.hgignore

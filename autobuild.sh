@@ -11,7 +11,7 @@ rm -rf MANIFEST blib
 
 # Make makefiles.
 
-perl Makefile.PL PREFIX=$AUTO_BUILD_ROOT
+perl Makefile.PL PREFIX=$AUTOBUILD_INSTALL_ROOT
 make manifest
 echo $NAME.spec >> MANIFEST
 
@@ -38,7 +38,7 @@ if [ -f /usr/bin/rpmbuild ]; then
   rpmbuild -ta --clean $NAME-*.tar.gz
 fi
 
-if [ -f /usr/bin/fakeroot ]; then
+if [ -f /usr/bin/fakeroot -a -n "$AUTOBUILD_PACKAGE_ROOT" ]; then
   fakeroot debian/rules clean
-  fakeroot debian/rules DESTDIR=$HOME/packages/debian binary
+  fakeroot debian/rules DESTDIR=$AUTOBUILD_PACKAGE_ROOT/debian binary
 fi

@@ -121,29 +121,32 @@ Arrays and hashes can be nested to arbitrary depth.
 
 =over 4
 
-=pod
-
 =item my $config = Config::Record->new([file => $file]);
 
 Creates a new config object, loading parameters from the file specified
 by the C<file> parameter. The C<file> parameter can either be a string
 representing a fully qualified filename, or a IO::Handle object. If the
+C<file> parameter is a string, this filename will be saved and future
+calls to C<load> or C<save> are permitted to omit the filename. If the
 C<file> parameter is not supplied then an empty configuration record
 is created.
 
 
-=item $config->load($file);
+=item $config->load([$file]);
 
 Loads and parses a configuration record. The C<file> parameter can either
 be a string representing a fully qualified filename, or an IO::Handle 
-object. Prior to loading the record, the current contents of this 
-configuration are cleared.
+object. The C<$file> parameter may be omitted, if a filename was specified 
+in the constructor, or in previous calls to C<load> or C<save>. Prior to 
+loading the record, the current contents of this configuration are cleared.
 
-=item $config->save($file);
+=item $config->save([$file]);
 
 Saves the configuration record to a file. The C<file> parameter can either
 be a string representing a fully qualified filename, or an IO::Handle
-object opened for writing.
+object opened for writing. The C<$file> parameter may be omitted, if a 
+filename was specified  in the constructor, or in previous calls to C<load> 
+or C<save>.
 
 =item my $value = $config->get($key[, $default]);
 
@@ -202,6 +205,6 @@ Copyright (C) 2000-2004 Daniel P. Berrange <dan@berrange.com>
 
 =head1 SEE ALSO
 
-L<perl(1)>
+C<perl(1)>
 
 =cut

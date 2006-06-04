@@ -1,4 +1,4 @@
-# $Id: Makefile.PL,v 1.2 2004/04/01 19:32:57 dan Exp $
+# $Id: Makefile.PL,v 1.3 2006/01/27 16:25:50 dan Exp $
 # -*- perl -*-
 
 use ExtUtils::MakeMaker;
@@ -34,6 +34,27 @@ sub libscan
   {
     my ($self, $path) = @_;
     ($path =~ /\~$/) ? undef : $path;
+  }
+
+sub test {
+    my $self = shift;
+    my $mm_test = $self->SUPER::test(@_);
+    
+    return '
+TO_TEST_PM = $(TO_INST_PM:lib/%.pm=blib/test/%.pm.tstamp)
+
+test :: test-syntax
+
+test-syntax: pure_all $(TO_TEST_PM)
+
+blib/test/%.pm.tstamp: lib/%.pm
+	@echo -n "Checking $<: "
+	@perl -I blib/lib -c $<
+	@podchecker `echo $< | sed -e \'s/\.pm/.pod/\' `
+	@mkdir -p `dirname $@`
+	@touch $@
+
+' . $mm_test;
   }
 
 __END__

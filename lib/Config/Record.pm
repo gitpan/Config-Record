@@ -18,7 +18,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
-# $Id: Record.pm,v 1.10 2005/03/09 21:52:34 dan Exp $
+# $Id: Record.pm,v 1.12 2006/01/27 16:25:50 dan Exp $
 
 package Config::Record;
 
@@ -30,7 +30,7 @@ use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.1.0";
+$VERSION = "1.1.1";
 
 sub new {
     my $proto = shift;
@@ -40,6 +40,7 @@ sub new {
     
     $self->{record} = exists $params{record} ? $params{record} : {};
     $self->{debug} = $params{debug};
+    $self->{filename} = undef;
     
     bless $self, $class;
     
@@ -53,7 +54,15 @@ sub new {
 
 sub load {
     my $self = shift;
-    my $file = shift;
+ 
+    my $file;
+    if (@_) {
+	$file = shift;
+    } elsif ($self->{filename}) {
+	$file = $self->{filename};
+    } else {
+	die "no filename was specified";
+    }
     
     my $fh;
     if (ref($file)) {
@@ -64,6 +73,7 @@ sub load {
     } else {
 	$fh = IO::File->new($file)
 	    or confess "cannot read from $file: $!";
+	$self->{filename} = $file;
     }
     
     local $/ = undef;
@@ -241,7 +251,15 @@ sub _parse {
     
 sub save {
     my $self = shift;
-    my $file = shift;
+    
+    my $file;
+    if (@_) {
+	$file = shift;
+    } elsif ($self->{filename}) {
+	$file = $self->{filename};
+    } else {
+	die "no filename was specified";
+    }
     
     my $fh;
     if (ref($file)) {
@@ -252,6 +270,7 @@ sub save {
     } else {
 	$fh = IO::File->new(">$file")
 	    or confess "cannot write to $file: $!";
+	$self->{filename} = $file;
     }
 
     foreach my $key (keys %{$self->{record}}) {

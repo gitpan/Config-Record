@@ -1,6 +1,17 @@
 Change Log for Config::Record
 =============================
 
+v1.1.1 (on 04-06-2006)
+----------------------
+
+This is a minor cleanup release with no backwards compatability
+breakage
+
+ * Fixed POD comments
+ * Added tests for POD comments & coverage
+ * Allow a filename to be passed into save/load methods 
+ * Make RPM specfile install into vendor dirs, rather than site
+
 v1.1.0 (on 09-03-2005)
 ----------------------
 

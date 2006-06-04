@@ -1,10 +1,11 @@
-# $Id: 005Config.t,v 1.7 2005/03/09 21:52:34 dan Exp $
+# -*- perl -*- $Id: 005Config.t,v 1.8 2006/01/27 16:25:50 dan Exp $
 
 use Test::More tests => 56;
 
 BEGIN { use_ok("Config::Record") }
 
-$| = undef;
+#$| = undef;
+use strict;
 use warnings;
 use Carp qw(confess);
 use Test::Harness;
@@ -306,11 +307,11 @@ sub compare {
 	}
       }
     } elsif ($ar eq "ARRAY") {
-      if ($#a != $#b) {
+      if ($#{$a} != $#{$b}) {
 	return 0;
       }
-      for (my $i = 0 ; $i <= $#a ; $i++) {
-	my $same = &compare($a[$i], $b[$i]);
+      for (my $i = 0 ; $i <= $#{$a} ; $i++) {
+	my $same = &compare($a->[$i], $b->[$i]);
 	if (!$same) {
 	  return 0;
 	}
