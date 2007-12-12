@@ -15,3 +15,5 @@ cover_db
 ^.hg/
 ^.hgtags
 ^.hgignore
+.*\.orig
+.*\.rej

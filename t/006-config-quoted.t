@@ -1,6 +1,6 @@
 # -*- perl -*- $Id: 005Config.t,v 1.8 2006/01/27 16:25:50 dan Exp $
 
-use Test::More tests => 56;
+use Test::More tests => 68;
 
 BEGIN { use_ok("Config::Record") }
 
@@ -46,6 +46,14 @@ EOF
       surname = One
     }
   )
+  array = (
+    (
+      sub1
+    )
+    (
+      sub2
+    )
+  )
   wizz = { # Testing a hash
     foo = "Elk"
     ooh = "fds"
@@ -62,6 +70,35 @@ EOF
       )
     }
   }
+  # Testing spaces in keys
+  "  quoted one  " = wizz
+  "  quoted \\\\ two  " = "  wizz  "
+  "quoted \\" three" = (
+     yeah
+  )
+  "quoted \\\\\\" four" = {
+    ooh = ahh
+  }
+  "quoted \\" five" = {
+     "[0]" = notarray
+     data = (
+        {
+          "sub1/key" = hello
+          "sub2\\\\/key" = world
+        }
+        wizz
+        {
+           "here [2] key" = (
+              one
+              two
+              three
+           )
+        }
+     )
+     "other \\\\/" = {
+        sub = one
+     }
+  }
 END
 
 my ($fh, $file) = tempfile("tmpXXXXXXX", UNLINK => 1);
@@ -69,7 +106,9 @@ print $fh $config;
 close $fh;
 
 # First test the constructor with a filename
-my $cfg = Config::Record->new(file => $file, debug => ($ENV{TEST_DEBUG} || 0));
+my $cfg = Config::Record->new(file => $file,
+			      debug => $ENV{TEST_DEBUG},
+			      features => {quotedkeys => 1 });
 
 # Test plain string
 is($cfg->get("name"), "Foo", "Plain string");
@@ -104,7 +143,9 @@ ok($cfg->get("wibble/nice/ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array val
 
 # Now test the constructor with a file handle
 $fh = IO::File->new($file);
-$cfg = Config::Record->new(file => $fh);
+$cfg = Config::Record->new(file => $fh,
+			   debug => $ENV{TEST_DEBUG},
+			   features => {quotedkeys => 1});
 
 # Test plain string
 is($cfg->get("name"), "Foo", "Plain string");
@@ -155,6 +196,22 @@ eval {
 };
 ok($@, "root should be a hash");
 
+# Test keys with spaces in them
+
+is($cfg->get('  quoted one  '), "wizz", "Quoted key + value");
+is($cfg->get('  quoted \ two  '), "  wizz  ", "Quoted key + value");
+is_deeply($cfg->get('quoted " three'), ["yeah"], "Quoted key + array");
+is_deeply($cfg->get('quoted \" four'), {"ooh" => "ahh" }, "Quoted key + hash with spaces");
+
+# Testing keys with / and [] in them
+is($cfg->get('quoted " five/\\[0\\]/'), "notarray", "Special path chars one");
+is($cfg->get('quoted " five/data/[0]/sub1\\/key'), "hello", "Special path chars two");
+is($cfg->get('quoted " five/data/[0]/sub2\\\\/key'), "world", "Special path chars three");
+is($cfg->get('quoted " five/data/[1]'), "wizz", "Special path chars four");
+is($cfg->get('quoted " five/data/[2]/here [2] key/[0]'), "one", "Special path chars five");
+is($cfg->get('quoted " five/data/[2]/here [2] key/[1]'), "two", "Special path chars six");
+is_deeply($cfg->get('quoted " five/other \\\\/'), {"sub" => "one"}, "Special path chars seven");
+
 # Now lets get a view
 
 my $subcfg = $cfg->view("people/[2]");
@@ -199,7 +256,8 @@ ok($@, "getting view of people/[1]/forename failed");
 
 # Test with empty constructor & load method
 
-$cfg = Config::Record->new();
+$cfg = Config::Record->new(debug => $ENV{TEST_DEBUG},
+			   features => {quotedkeys => 1});
 
 # Shouldn't be anything there yet
 eval "$cfg->get('name')";
@@ -235,7 +293,8 @@ $fh2->close;
 $cfg->save($file2);
 
 # ...and then read it back in
-my $cfg2 = Config::Record->new(file => $file2);
+my $cfg2 = Config::Record->new(debug => $ENV{TEST_DEBUG},
+			       file => $file2, features => {quotedkeys => 1});
 
 # Test plain string
 is($cfg2->get("name"), "Foo", "Saved plain string");
@@ -269,7 +328,10 @@ ok(defined $cfg2->get("wibble/nice/ooh"), "Hash, hash key defined");
 ok($cfg2->get("wibble/nice/ooh", ["oooh"])->[0] eq "weee", "Hash, hash, array value");
 
 # Now recursively compare entire hash
-eq_hash($cfg->record, $cfg2->record, "Entire hash");
+use Data::Dumper;
+#warn Dumper($cfg->record);
+#warn Dumper($cfg2->record);
+is_deeply($cfg->record, $cfg2->record, "Entire hash");
 
 
 # Finally test the constructor with bogus ref
@@ -281,53 +343,6 @@ ok($@ ? 1 : 0, "Bogus constructor");
 
 
 exit 0;
-
-sub compare {
-  my $a = shift;
-  my $b = shift;
-  
-  my $ar = ref($a);
-  my $br = ref($b);
-  
-  if (defined $ar) {
-    if (!defined $br) {
-      return 0;
-    }
-    if ($ar ne $br) {
-      return 0;
-    }
-    if ($ar eq "HASH") {
-      foreach my $key (keys %{$a}) {
-	if (!exists $b->{$key}) {
-	  return 0;
-	}
-	my $same = &compare($a->{$key}, $b->{$key});
-	if (!$same) {
-	  return 0;
-	}
-      }
-    } elsif ($ar eq "ARRAY") {
-      if ($#{$a} != $#{$b}) {
-	return 0;
-      }
-      for (my $i = 0 ; $i <= $#{$a} ; $i++) {
-	my $same = &compare($a->[$i], $b->[$i]);
-	if (!$same) {
-	  return 0;
-	}
-      }
-    }
-  } else {
-    if (defined $br) {
-      return 0;
-    }
-    
-    if ($a ne $b) {
-      return 0;
-    }
-  }
-  return 1;
-}
 
 
 # Local Variables:

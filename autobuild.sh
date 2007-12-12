@@ -10,13 +10,13 @@ make -k realclean ||:
 rm -rf MANIFEST blib
 
 # Make makefiles.
-
 perl Makefile.PL PREFIX=$AUTOBUILD_INSTALL_ROOT
-make manifest
-echo $NAME.spec >> MANIFEST
 
 # Build the RPM.
 make
+make manifest
+
+# Run test suite
 perl -MDevel::Cover -e '' 1>/dev/null 2>&1 && USE_COVER=1 || USE_COVER=0
 if [ "$USE_COVER" = "1" ]; then
   cover -delete
@@ -29,16 +29,24 @@ else
   make test
 fi
 
+# Install to virtual root
 make install
 
+# Make distribution & packages
 rm -f $NAME-*.tar.gz
 make dist
 
 if [ -f /usr/bin/rpmbuild ]; then
-  rpmbuild -ta --clean $NAME-*.tar.gz
+  if [ -n "$AUTOBUILD_COUNTER" ]; then
+    EXTRA_RELEASE=".auto$AUTOBUILD_COUNTER"
+  else
+    NOW=`date +"%s"`
+    EXTRA_RELEASE=".$USER$NOW"
+  fi
+  rpmbuild -ta --define "extra_release $EXTRA_RELEASE" --clean $NAME-*.tar.gz
 fi
 
-if [ -f /usr/bin/fakeroot -a -n "$AUTOBUILD_PACKAGE_ROOT" ]; then
+if [ -f /usr/bin/fakeroot -a -f /etc/debian_version -a -n "$AUTOBUILD_PACKAGE_ROOT" ]; then
   fakeroot debian/rules clean
   fakeroot debian/rules DESTDIR=$AUTOBUILD_PACKAGE_ROOT/debian binary
 fi

@@ -2,6 +2,8 @@
 # -*- perl -*-
 
 use ExtUtils::MakeMaker;
+use strict;
+use warnings;
 
 WriteMakefile(
 	      NAME => "Config::Record",
@@ -16,15 +18,15 @@ WriteMakefile(
 	      {
 	       FILES => '*.bak *~',
 	      },
-	      
+
+              NO_META => 1,
 	      depend => {
 	        Makefile => '$(VERSION_FROM)',
-	        Config-Record.spec => '$(VERSION_FROM)',
-		dist => 'Config-Record.spec',
+		dist => 'Config-Record.spec META.yml',
 	      },
-	      
+
 	      realclean => {
-	       FILES => 'Config-Record-*.tar.gz Config-Record.spec',
+	       FILES => 'Config-Record-*.tar.gz Config-Record.spec META.yml',
 	      }
 	     );
 
@@ -34,27 +36,6 @@ sub libscan
   {
     my ($self, $path) = @_;
     ($path =~ /\~$/) ? undef : $path;
-  }
-
-sub test {
-    my $self = shift;
-    my $mm_test = $self->SUPER::test(@_);
-    
-    return '
-TO_TEST_PM = $(TO_INST_PM:lib/%.pm=blib/test/%.pm.tstamp)
-
-test :: test-syntax
-
-test-syntax: pure_all $(TO_TEST_PM)
-
-blib/test/%.pm.tstamp: lib/%.pm
-	@echo -n "Checking $<: "
-	@perl -I blib/lib -c $<
-	@podchecker `echo $< | sed -e \'s/\.pm/.pod/\' `
-	@mkdir -p `dirname $@`
-	@touch $@
-
-' . $mm_test;
   }
 
 __END__

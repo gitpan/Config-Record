@@ -1,7 +1,28 @@
+# Copyright (C) 2001-2007 Daniel Berrange <dan@berrange.com>
+
+use strict;
+use warnings;
+
+die unless (scalar @ARGV == 1);
+
+unless (do "lib/Config/Record.pm")
+  {
+    if ($@) { die $@ }
+    die "lib/Config/Record.pm: $!"
+  }
+
+local $/ = undef;
+$_ = <DATA>;
+s/\@VERSION\@/$Config::Record::VERSION/g;
+
+open YML, ">$ARGV[0]" or die "$!";
+print YML $_;
+close YML;
+__DATA__
 --- #YAML:1.0
 name:         Config-Record
 abstract:     Configuration file access
-version:      1.1.2
+version:      @VERSION@
 author:
   - Daniel P. Berrange <dan@berrange.com>
 license: gpl

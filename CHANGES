@@ -1,6 +1,17 @@
 Change Log for Config::Record
 =============================
 
+v1.1.2 (on 11-12-2007)
+----------------------
+
+This is a minor feature enhancement release with no backwards
+compatability breakage
+
+ * Added support for including files via @include() tag
+ * Added support for keys containing characters outside a-Z0-9,
+   by quoting the keys
+ * Remove non-portable Makefile testing cruft
+
 v1.1.1 (on 04-06-2006)
 ----------------------
 

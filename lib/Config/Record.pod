@@ -92,7 +92,6 @@ eg
 
 Arrays and hashes can be nested to arbitrary depth. 
 
-
 =head1 EXAMPLE
 
   name = Foo
@@ -117,11 +116,67 @@ Arrays and hashes can be nested to arbitrary depth.
     ooh = "fds"
   }
 
+=head1 EXTRA PARSER FEATURES
+
+The syntax described thus far is classed as the base feature set. By
+passing the C<features> parameter when creating an instance of the
+C<Config::Record> class, it is posible to turn on certain extra 
+features
+
+=head2 QUOTED NON-ALPHANUMERIC KEYS
+
+The keys for configuration parameters are normally restricted to only
+contain the characters 'a-Z', '0-9', '_', '-' and '.'. Sometimes it
+is desirable to allow arbitrary characters for keys. If this capability
+is required then the C<quotedkeys> parameter can be set.
+
+=head3 EXAMPLE
+
+  name = Foo
+  title = "Wizz bang wallop"
+  " some parameter " = (
+     foo
+     bar
+  }
+  "an embeded \" quote" = bar
+  "an embeded \\ backslash" = wizz
+
+
+=head2 EXTERNAL INCLUDE FILES
+
+With large configuration files it can be desirable to split them into
+a number of smaller files. If this capability is required, then the
+C<includes> feature can be requested. Each included file must follow
+the syntax rules already described.
+
+=head3 EXAMPLE
+
+In the main file
+
+  name = Foo
+  title = "Wizz bang wallop"
+  foo = @include(somefile.cfg)
+
+And in somefile.cfg
+
+  firstname = Joe
+  lastname = Blogs
+
+Is equivalent to
+
+  name = Foo
+  title = "Wizz bang wallop"
+  foo = {
+    firstname = Joe
+    lastname = Blogs
+  }
+
 =head1 METHODS
 
 =over 4
 
-=item my $config = Config::Record->new([file => $file]);
+=item my $config = Config::Record->new([file => $file],
+	                               [features => \%features]);
 
 Creates a new config object, loading parameters from the file specified
 by the C<file> parameter. The C<file> parameter can either be a string
@@ -131,6 +186,9 @@ calls to C<load> or C<save> are permitted to omit the filename. If the
 C<file> parameter is not supplied then an empty configuration record
 is created.
 
+The C<features> parameter allows extra parser features to be enabled.
+The two valid keys for the associated hash as C<includes> and
+C<quotedkeys> as described earlier in this document.
 
 =item $config->load([$file]);
 
@@ -201,7 +259,7 @@ Daniel Berrange <dan@berrange.com>
 
 =head1 COPYRIGHT
 
-Copyright (C) 2000-2004 Daniel P. Berrange <dan@berrange.com>
+Copyright (C) 2000-2007 Daniel P. Berrange <dan@berrange.com>
 
 =head1 SEE ALSO
 

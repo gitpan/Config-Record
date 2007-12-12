@@ -2,7 +2,7 @@
 #
 # Config::Record by Daniel Berrange <dan@berrange.com>
 #
-# Copyright (C) 2000-2004 Daniel P. Berrange <dan@berrange.com>
+# Copyright (C) 2000-2007 Daniel P. Berrange <dan@berrange.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 package Config::Record;
 
 use strict;
+use warnings;
 use Carp qw(confess cluck);
 use IO::File;
 
@@ -30,7 +31,7 @@ use warnings::register;
 
 use vars qw($VERSION);
 
-$VERSION = "1.1.1";
+$VERSION = "1.1.2";
 
 sub new {
     my $proto = shift;
@@ -39,6 +40,7 @@ sub new {
     my %params = @_;
     
     $self->{record} = exists $params{record} ? $params{record} : {};
+    $self->{features} = exists $params{features} ? $params{features} : {};
     $self->{debug} = $params{debug};
     $self->{filename} = undef;
     
@@ -78,7 +80,7 @@ sub load {
     
     local $/ = undef;
     my $data = <$fh>;
-    $self->_parse($data,  ref($file) ? "<unknown>" : $file);
+    $self->{record} = $self->_parse($data,  ref($file) ? "<unknown>" : $file);
     $fh->close 
 	or confess "cannot close file: $!";
 }
@@ -95,6 +97,10 @@ sub _parse {
     my $continuation;
 
     my $LABEL = '((?:\w|-|\.)+)';
+    # Hairy ! Escaping the escape chars really obscures the regex.
+    # Need to allow  any character except \ or "
+    # unless they are written as  \\  or  \"
+    my $QUOTED_LABEL = '((?:(?:[^"\\\])|(?:\\\\")|(?:\\\\\\\\))+)';
     my $TRAILING_WHITESPACE = '\s*(?:\#.*)?';
     my $lineno = 0;
 
@@ -102,7 +108,10 @@ sub _parse {
 
     foreach my $line (@lines) {
 	$lineno++;
-	warn "$lineno: '$line' '$here' '$continuation'\n" if $self->{debug};
+	warn $lineno . ": '" . $line . "' here='" .
+	    (defined $here ? $here : '') . "' continue='" .
+	    (defined $continuation ? $continuation : '') .
+	    "'\n" if $self->{debug};
 	next if $line =~ m|^\s*#|;
 	next if $line =~ m|^\s*$|;
 
@@ -125,13 +134,19 @@ sub _parse {
 		warn "$lineno: unexpected input '$line'\n";
 	    }
 	} else {
-	    if ($line =~ /^\s*$LABEL\s*=\s*\(${TRAILING_WHITESPACE}$/) { # foo = ( 
-		warn "$lineno: Key with array\n" if $self->{debug};
+	    if ($line =~ /^\s*$LABEL\s*=\s*\(${TRAILING_WHITESPACE}$/ || # foo = (
+		($self->{features}->{quotedkeys} &&
+		 $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*\(${TRAILING_WHITESPACE}$/)) { # " foo " = (
+		warn "$lineno: Key '$1' with array\n" if $self->{debug};
 		if (ref($value) eq "ARRAY") {
 		    confess "unexpected key,value pair in $filename at line $lineno";
 		}
 		
 		my $key = $1;
+
+		if ($self->{features}->{quotedkeys}) {
+		    $key =~ s,\\("|\\),$1,g;
+		}
 		
 		my $new = [];
 		$value->{$key} = $new;
@@ -158,14 +173,20 @@ sub _parse {
 		
 		pop @stack;
 		$value = $stack[$#stack];
-	    } elsif ($line =~ /^\s*$LABEL\s*=\s*{${TRAILING_WHITESPACE}$/) { # foo = {
-		warn "$lineno: Key with hash\n" if $self->{debug};
+	    } elsif ($line =~ /^\s*$LABEL\s*=\s*{${TRAILING_WHITESPACE}$/ || # foo = {
+		     ($self->{features}->{quotedkeys} &&
+		      $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*{${TRAILING_WHITESPACE}$/)) { # " foo " = {
+		warn "$lineno: Key '$1' with hash\n" if $self->{debug};
 		if (ref($value) eq "ARRAY") {
 		    confess "unexpected key,value pair in $filename at line $lineno";
 		}
 		
 		my $key = $1;
 		
+		if ($self->{features}->{quotedkeys}) {
+		    $key =~ s,\\("|\\),$1,g;
+		}
+
 		my $new = {};
 		$value->{$key} = $new;
 		$value = $new;
@@ -191,21 +212,57 @@ sub _parse {
 		
 		pop @stack;
 		$value = $stack[$#stack];
-	    } elsif ($line =~ /^\s*$LABEL\s*=\s*<<(\w+)\s*$/) { # foo = <<EOF
-		warn "$lineno: Key with here doc\n" if $self->{debug};
+	    } elsif ($self->{features}->{includes} &&
+		     ($line =~ /^\s*$LABEL\s*=\s*\@include\((.+)\)${TRAILING_WHITESPACE}$/ || # foo = @include(filename)
+		      ($self->{features}->{quotedkeys} &&
+		       $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*\@include\((.+)\)${TRAILING_WHITESPACE}$/))) { # " foo " = @include(filename)
+		warn "$lineno: Include file\n" if $self->{debug};
+		my $key = $1;
+		my $file = $2;
+
+		if ($self->{features}->{quotedkeys}) {
+		    $key =~ s,\\("|\\),$1,g;
+		}
+
+		my $fh = IO::File->new($file)
+		    or confess "cannot read from $file: $!";
+
+		local $/ = undef;
+		my $data = <$fh>;
+		my $record = $self->_parse($data,  ref($file) ? "<unknown>" : $file);
+		$fh->close
+		    or confess "cannot close file: $!";
+
+		$value->{$key} = $record;
+	    } elsif ($line =~ /^\s*$LABEL\s*=\s*<<(\w+)\s*$/ || # foo = <<EOF
+		     ($self->{features}->{quotedkeys} &&
+		      $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*<<(\w+)\s*$/)) { # " foo " = <<EOF
+		warn "$lineno: Key '$1' with here doc\n" if $self->{debug};
 		my $key = $1;
 		my $val = "";
 		
+		if ($self->{features}->{quotedkeys}) {
+		    $key =~ s,\\("|\\),$1,g;
+		}
+
 		$value->{$key} = $val;
 
 		$here = $2;
 		$continuation = \$value->{$key};
 	    } elsif ($line =~ /^\s*$LABEL\s*=\s*"(.*)"\s*(\\)?${TRAILING_WHITESPACE}$/ || # foo = "..."
-		     $line =~ /^\s*$LABEL\s*=\s*(.*?)(\\)?\s*$/) { # foo = ...
-		warn "$lineno: Key with string\n" if $self->{debug};
+		     ($self->{features}->{quotedkeys} &&
+		      $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*"(.*)"\s*(\\)?${TRAILING_WHITESPACE}$/) || # " foo " = "..."
+		     $line =~ /^\s*$LABEL\s*=\s*(.*?)(\\)?\s*$/ || # foo = ...
+		     ($self->{features}->{quotedkeys} &&
+		      $line =~ /^\s*"$QUOTED_LABEL"\s*=\s*(.*?)(\\)?\s*$/)) { # " foo " = ...
+		warn "$lineno: Key '$1' with string\n" if $self->{debug};
 		my $key = $1;
 		my $val = $2;
 		
+		if ($self->{features}->{quotedkeys}) {
+		    $key =~ s,\\("|\\),$1,g;
+		}
+
 		if (ref($value) eq "ARRAY") {
 		    confess "expecting value, found key, value pair at line $lineno";
 		}
@@ -225,6 +282,25 @@ sub _parse {
 		
 		$here = $1;
 		$continuation = \$value->[$#{$value}];
+	    } elsif ($self->{features}->{includes} &&
+		     ($line =~ /^\s*\@include\((.+)\)${TRAILING_WHITESPACE}$/)) { # @include(filename)
+		warn "$lineno: Include file\n" if $self->{debug};
+		my $file = $1;
+
+		my $fh = IO::File->new($file)
+		    or confess "cannot read from $file: $!";
+
+		local $/ = undef;
+		my $data = <$fh>;
+		my $record = $self->_parse($data,  ref($file) ? "<unknown>" : $file);
+		$fh->close
+		    or confess "cannot close file: $!";
+
+		if (ref($value) ne "ARRAY") {
+		    confess "expecting key,value pair, found value at line $lineno";
+		}
+		
+		push @{$value}, $record;
 	    } elsif ($line =~ /^\s*"(.*)"\s*(\\)?${TRAILING_WHITESPACE}$/ || # "..."
 		     $line =~ /^\s*(.*?)(\\)?\s*$/) { # ...
 		warn "$lineno: Value\n" if $self->{debug};
@@ -246,7 +322,7 @@ sub _parse {
 	confess "missing closing bracket in $filename at line $lineno";
     }
 		 
-    $self->{record} = $stack[$#stack];
+    return $stack[$#stack];
 }
     
 sub save {
@@ -274,7 +350,7 @@ sub save {
     }
 
     foreach my $key (keys %{$self->{record}}) {
-	print $fh "$key = ";
+	print $fh $self->_format_key($key), " = ";
 	$self->_format($fh, $self->{record}->{$key}, "");
     }
     
@@ -311,7 +387,7 @@ sub _format_hash {
     
     print $fh "{\n";
     foreach my $key (keys %{$record}) {
-	print $fh "$indent  $key = ";
+	print $fh "$indent  ", $self->_format_key($key), " = ";
 	$self->_format($fh, $record->{$key}, "$indent  ");
     }
     print $fh "$indent}\n";
@@ -354,6 +430,22 @@ sub _format_scalar {
     }
 }
 
+sub _format_key {
+    my $self = shift;
+    my $key = shift;
+    if ($self->{features}->{quotedkeys}) {
+	if ($key =~ /^((?:\w|-|\.)+)$/) {
+	    return $key;
+	} else {
+	    $key =~ s/\\/\\\\/g;
+	    $key =~ s/"/\\"/g;
+	    return '"' . $key . '"';
+	}
+    } else {
+	return $key;
+    }
+}
+
 
 sub view {
     my $self = shift;
@@ -365,7 +457,9 @@ sub view {
 	ref($value) ne "HASH") {
 	confess "value for $key is not a hash";
     }
-    return $self->new(record => $value);
+    return $self->new(record => $value,
+		      debug => $self->{debug},
+		      features => $self->{features});
 }
 
 
@@ -373,8 +467,15 @@ sub get {
     my $self = shift;
     my $key = shift;
     
-    my @key = split /\//, $key;
-    
+    my @key;
+
+    warn "Key: '" . $key . "'\n" if $self->{debug};
+    foreach (split /((?<!\\)\/)/, $key) {
+	next if m,^/$,;
+	warn "  -> '" . $_ . "'\n" if $self->{debug};
+	push @key, $_;
+    }
+
     my $entry = $self->{record};
     my $context;
     foreach my $fragment (@key) {
@@ -386,31 +487,50 @@ sub get {
 		if (@_) {
 		    return shift;
 		}
-		confess "cannot find array value at $context for parameter $key";
+		confess "cannot find array value at '$context' for parameter '$key'";
 	    }
 	    if ($#{$entry} < $index) {
 		if (@_) {
 		    return shift;
 		}
-		confess "cannot find array value at $context for parameter $key";
+		confess "cannot find array value at '$context' for parameter '$key'";
 	    }
 	    $entry = $entry->[$index];
-	} elsif ($fragment =~ /((?:\w|-|\.)+)/) {
+	} elsif ($self->{features}->{quotedkeys}) {
+	    $fragment =~ s/\\(\[|\]|\/|\\)/$1/g;
+	    warn "Quote '$fragment'\n" if $self->{debug};
 	    if (ref($entry) ne "HASH") {
 		if (@_) {
 		    return shift;
 		}
-		confess "cannot find hash value at $context for parameter $key";
+		confess "cannot find hash value at '$context' for parameter '$key'";
 	    }
 	    if (!exists $entry->{$fragment}) {
 		if (@_) {
 		    return shift;
 		}
-		confess "cannot find hash value at $context for parameter $key";
+		confess "cannot find hash value at '$context' for parameter '$key'";
 	    }
 	    $entry = $entry->{$fragment};
 	} else {
-	    confess "fragment '$fragment' should be alphanumeric, or an array index";
+	    warn "NonQuote '$fragment'\n" if $self->{debug};
+	    if ($fragment =~ /((?:\w|-|\.)+)/) {
+		if (ref($entry) ne "HASH") {
+		    if (@_) {
+			return shift;
+		    }
+		    confess "cannot find hash value at '$context' for parameter '$key'";
+		}
+		if (!exists $entry->{$fragment}) {
+		    if (@_) {
+			return shift;
+		    }
+		    confess "cannot find hash value at '$context' for parameter '$key'";
+		}
+		$entry = $entry->{$fragment};
+	    } else {
+		confess "fragment '$fragment' should be alphanumeric, or an array index";
+	    }
 	}
     }
     
@@ -423,8 +543,15 @@ sub set {
     my $key = shift;
     my $value = shift;
     
-    my @key = split /\//, $key;
-    
+    my @key;
+    warn "Key: '" . $key . "'\n" if $self->{debug};
+    foreach (split /((?<!\\)\/)/, $key) {
+	next if m,^/$,;
+	warn "  -> '" . $_ . "'\n" if $self->{debug};
+	push @key, $_;
+    }
+
+
     my $entry = $self->{record};
     my $context;
     while (defined (my $fragment = shift @key)) {
@@ -449,7 +576,9 @@ sub set {
 	    } else {
 		$entry->[$index] = $value;
 	    }
-	} elsif ($fragment =~ /((?:\w|-|\.)+)/) {
+	} elsif ($self->{features}->{quotedkeys}) {
+	    $fragment =~ s/\\(\[|\]|\/|\\)/$1/g;
+	    warn "Quote '$fragment'\n" if $self->{debug};
 	    if (ref($entry) ne "HASH") {
 		confess "cannot find hash value at $context for parameter $key";
 	    }
@@ -468,7 +597,28 @@ sub set {
 		$entry->{$fragment} = $value;
 	    }
 	} else {
-	    confess "fragment '$fragment' should be alphanumeric, or an array index";
+	    warn "NonQuote '$fragment'\n" if $self->{debug};
+	    if ($fragment =~ /((?:\w|-|\.)+)/) {
+		if (ref($entry) ne "HASH") {
+		    confess "cannot find hash value at $context for parameter $key";
+		}
+		if (@key) {
+		    if (exists $entry->{$fragment}) {
+			$entry = $entry->{$fragment};
+		    } else {
+			if ($key[0] =~ /^\[(\d+)\]$/) {
+			    $entry->{$fragment} = [];
+			} else {
+			    $entry->{$fragment} = {};
+			}
+			$entry = $entry->[$fragment];
+		    }
+		} else {
+		    $entry->{$fragment} = $value;
+		}
+	    } else {
+		confess "fragment '$fragment' should be alphanumeric, or an array index";
+	    }
 	}
     }
 }
